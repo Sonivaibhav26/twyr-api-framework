@@ -1,4 +1,4 @@
-/// <reference path="../typings/node/node.d.ts"/>
+/// <reference path="./typings/node/node.d.ts"/>
 /*
  * Name			: api-server.js
  * Author		: Vish Desai (vishwakarma_d@hotmail.com)

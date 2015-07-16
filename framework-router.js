@@ -19,7 +19,6 @@ var frameworkRouter = (function() {
 	// Step 1: Instantiate the Router itself...
 	var router = require('express').Router(),
 		logger = require('morgan'),
-		loggerSrvc = this.$services.logger.getInterface(),
 		self = this;
 
 	// Step 2: Setup the logger for the router...
