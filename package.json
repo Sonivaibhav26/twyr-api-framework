@@ -1,0 +1,91 @@
+{
+	"name": "twyr-api-server",
+	"version": "0.6.1",
+	"description": "The Twy'r API Server Framework",
+	"keywords": [
+		"api",
+		"framework"
+	],
+	"author": {
+		"name": "Vish Desai",
+		"email": "vishwakarma_d@hotmail.com",
+		"url": "https://www.linkedin.com/in/vishdesai"
+	},
+	"homepage": "https://twyr.github.io",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/shadyvd/twyr-api-server.git"
+	},
+	"main": "index.js",
+	"scripts": {
+		"postinstall": "bower install",
+		"postupdate": "bower update",
+		"start": "BLUEBIRD_DEBUG=1 node index.js",
+		"test": "echo \"Error: no test specified! Configure in package.json\" && exit 1"
+	},
+	"engines": {
+		"node": ">=0.10"
+	},
+	"dependencies": {
+		"bcrypt-nodejs": "*",
+		"bluebird": "*",
+		"bookshelf": "*",
+		"dependency-graph" :"*",
+		"express": ">= 4.0",
+		"body-parser": "*",
+		"consolidate": "*",
+		"cookie-parser": "*",
+		"compression": "*",
+		"connect-debounce": "*",
+		"connect-acceptoverride": "*",
+		"connect-flash": "*",
+		"connect-powered-by": "*",
+		"connect-rest": "*",
+		"connect-redis": "*",
+		"connect-timeout": "*",
+		"cors": "*",
+		"ejs": "*",
+		"express-session": "*",
+		"eventemitter3": "*",
+		"inflection": "*",
+		"knex": "*",
+		"method-override": "*",
+		"morgan": "*",
+		"serve-static": "*",
+		"serve-favicon": "*",
+		"node-uuid": "*",
+		"hiredis": "*",
+		"redis": "*",
+		"passport": "*",
+		"passport-local": "*",
+		"passport-facebook": "*",
+		"passport-github": "*",
+		"passport-google-oauth": "*",
+		"passport-linkedin-oauth2": "*",
+		"passport-twitter": "*",
+		"pg": "*",
+		"prime":"*",
+		"primus": "*",
+		"seneca": "*",
+		"winston": "*",
+		"ws": "*"
+	},
+	"devDependencies": {
+	},
+	"maintainers": [{
+		"name": "Vish Desai",
+		"email": "vishwakarma_d@hotmail.com",
+		"url": "https://www.linkedin.com/in/vishdesai"
+	}],
+	"contributors": [{
+		"name": "Vish Desai",
+		"email": "vishwakarma_d@hotmail.com",
+		"url": "https://www.linkedin.com/in/vishdesai"
+	}],
+	"bugs": {
+		"url": "https://github.com/shadyvd/twyr-api-server.git",
+		"email": "vishwakarma_d@hotmail.com"
+	},
+	"license": "MITNFA",
+	"readmeFilename": "README.md"
+}

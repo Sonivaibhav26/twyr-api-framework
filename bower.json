@@ -1,0 +1,39 @@
+{
+    "name": "twyr-api-server",
+    "version": "0.6.1",
+    "authors": [
+        {
+            "name": "Vish Desai",
+            "email": "vishwakarma_d@hotmail.com"
+        }
+    ],
+    "description": "The Twy'r API Server Framework",
+    "main": [
+        "./bower_components/bootflat/bootstrap/bootstrap.min.css",
+        "./bower_components/bootflat/js/bootstrap.min.js"
+    ],
+    "keywords": [
+		"api",
+		"framework"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/shadyvd/twyr-api-server.git"
+    },
+    "license": "MIT",
+    "homepage": "https://twyr.github.io",
+    "private": false,
+    "ignore": [
+        "**/.*",
+        "node_modules",
+        "bower_components"
+    ],
+    "dependencies": {
+    	"bootstrap": "*",
+    	"fontawesome": "*",
+    	"normalize-css": "*"
+    },
+    "devDependencies": {
+    }
+}
+
