@@ -76,12 +76,10 @@ var app = prime({
 				cors = require('cors'),
 				debounce = require('connect-debounce'),
 				engines = require('consolidate'),
-				favicon = require('serve-favicon'),
 				flash = require('connect-flash'),
 				logger = require('morgan'),
 				methodOverride = require('method-override'),
 				poweredBy = require('connect-powered-by'),
-				serveStatic = require('serve-static'),
 				session = require('express-session'),
 				sessStore = require('connect-' + self.$config.session.store.media)(session),
 				timeout = require('connect-timeout'),
@@ -149,7 +147,6 @@ var app = prime({
 				.use(acceptOverride())
 				.use(methodOverride())
 				.use(compress())
-				.use(favicon(path.join(__dirname, self.$config.favicon)))
 				.use(poweredBy(self.$config.poweredBy))
 				.use(timeout(self.$config.requestTimeout * 1000))
 				.use(bodyParser.json({
@@ -170,16 +167,8 @@ var app = prime({
 				.use(self.$session)
 				.use(self.$services.authService.getInterface().initialize())
 				.use(self.$services.authService.getInterface().session());
-			
-			// Step 3.3: Setup the static server
-			self.$config.publicDir = path.join(__dirname, self.$config.publicDir);
-			apiServer
-				.use(serveStatic(self.$config.publicDir, {
-					'index': 'index.html',
-					'maxAge': self.$config.browser.cacheTime
-				}));
 
-			// Step 3.4: Hook-in the component routers...
+			// Step 3.3: Hook-in the component routers...
 			for(var idx in self.$components) {
 				var thisComponent = self.$components[idx],
 					router = thisComponent.getRouter();
@@ -188,11 +177,11 @@ var app = prime({
 				apiServer.use(path.join((self.$config.componentMountPath || ''), thisComponent.name), router);
 			}
 
-			// Step 3.5: Add in the framework router...
+			// Step 3.4: Add in the framework router...
 			var frameworkRouter = require(self.$config.router).router.bind(self);
 			apiServer.use(frameworkRouter());
 
-			// Step 3.6: Finally, The error handlers...
+			// Step 3.5: Finally, The error handlers...
 			apiServer
 				.use(function(err, request, response, next) {
 					if(err) {

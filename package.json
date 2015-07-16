@@ -14,12 +14,10 @@
 	"homepage": "https://twyr.github.io",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/shadyvd/twyr-api-server.git"
+		"url": "https://github.com/twyr/twyr-api-framework"
 	},
 	"main": "index.js",
 	"scripts": {
-		"postinstall": "bower install",
-		"postupdate": "bower update",
 		"start": "BLUEBIRD_DEBUG=1 node index.js",
 		"test": "echo \"Error: no test specified! Configure in package.json\" && exit 1"
 	},
@@ -51,8 +49,6 @@
 		"knex": "*",
 		"method-override": "*",
 		"morgan": "*",
-		"serve-static": "*",
-		"serve-favicon": "*",
 		"node-uuid": "*",
 		"hiredis": "*",
 		"redis": "*",
@@ -83,7 +79,7 @@
 		"url": "https://www.linkedin.com/in/vishdesai"
 	}],
 	"bugs": {
-		"url": "https://github.com/shadyvd/twyr-api-server.git",
+		"url": "https://github.com/twyr/twyr-api-framework/issues",
 		"email": "vishwakarma_d@hotmail.com"
 	},
 	"license": "MITNFA",

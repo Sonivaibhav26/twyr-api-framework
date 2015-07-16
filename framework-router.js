@@ -34,26 +34,6 @@ var frameworkRouter = (function() {
 	}));
 	
 	// Step 3: Process the Root ('/') path
-	router.all('/', function(request, response, next) {
-		loggerSrvc.silly('Framework Router Rendering: ', request.path, ' with:\nQuery: ', JSON.stringify(request.query || {}), '\nBody: ', JSON.stringify(request.body || {}), '\nParams: ', JSON.stringify(request.params || {}));
-
-		var renderOptions = {
-			'title': self.$config.title
-		};
-
-		loggerSrvc.silly('Framework Router Render Options: ', JSON.stringify(renderOptions));
-		response.render('index', renderOptions, function(err, html) {
-			if(err) {
-				loggerSrvc.error('Framework Router Render Result:\nError: ', err, '\nHTML: ', html);
-				response.status(err.code || err.number || 404).redirect('/error.html');
-				return;
-			}
-			
-			loggerSrvc.silly('Framework Router Render Result:\nError: ', err, '\nHTML: ', html);
-			response.status(200).send(html);
-		});
-	});
-	
 	router.all('/*', function(request, response, next) {
 		response.status(404).send('URL unknown - please check your request!');
 	});
