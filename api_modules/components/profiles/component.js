@@ -1,4 +1,4 @@
-/// <reference path="../../../../typings/node/node.d.ts"/>
+/// <reference path="./../../../typings/node/node.d.ts"/>
 /*
  * Name			: api_modules/components/profiles/component.js
  * Author		: Vish Desai (vishwakarma_d@hotmail.com)
