@@ -97,7 +97,7 @@ exports.strategy = (function() {
 					};
 				}
 
-				return database.knex.raw('SELECT DISTINCT A.tenant_id AS tenant, B.component_permission_id AS permission FROM groups A INNER JOIN group_component_permissions B ON (A.id = B.group_id) WHERE A.id IN (SELECT group_id FROM users_groups WHERE user_id = ?)', [id]);
+				return database.knex.raw('SELECT DISTINCT A.tenant_id AS tenant, B.component_permission_id AS permission FROM groups A INNER JOIN group_component_permissions B ON (A.id = B.group_id) WHERE A.id IN (SELECT group_id FROM users_groups WHERE user_id = ?) AND B.component_permission_id != \'ffffffff-ffff-ffff-ffff-ffffffffffff\'', [id]);
 			})
 			// Step 4: Fetch, and process, User's permissions per tenant
 			.then(function(permissions) {
@@ -115,7 +115,7 @@ exports.strategy = (function() {
 						deserializedUser.tenants[thisTenantId] = {};
 						(deserializedUser.tenants[thisTenantId]).permissions = [];
 						(deserializedUser.tenants[thisTenantId]).menus = [];
-						(deserializedUser.tenants[thisTenantId]).widgets = {};
+						(deserializedUser.tenants[thisTenantId]).widgets = [];
 					}
 
 					var thisUserTenant = deserializedUser.tenants[thisTenantId];
@@ -180,12 +180,15 @@ exports.strategy = (function() {
 						if(!reorgedWidgets[thisWidget.position_name])
 							reorgedWidgets[thisWidget.position_name] = [];
 
-						var existingWidget = (reorgedWidgets[thisWidget.position_name]).find(function(item) {
-							return item.id == thisWidget.id;
-						});
+						if((reorgedWidgets[thisWidget.position_name]).length) {
+							var existingWidget = (reorgedWidgets[thisWidget.position_name]).find(function(item) {
+								logger.info('reorgedWidgets[' + thisWidget.position_name + ']).find(', item, ')');
+								return item.id == thisWidget.id;
+							});
 
-						if(existingWidget)
-							return;
+							if(existingWidget)
+								return;
+						}
 
 						(reorgedWidgets[thisWidget.position_name]).push(thisWidget);
 					});
@@ -216,9 +219,13 @@ exports.strategy = (function() {
 
 					thisUserTenantMenus.forEach(function(thisMenu) {
 						if(!thisMenu.parent_id) {
-							var existingMenu = reorgedMenus.find(function(item) {
-								if(item.id == thisMenu.id) return true;
-							});
+							var existingMenu = null;
+							
+							if(reorgedMenus.length) {
+								existingMenu = reorgedMenus.find(function(item) {
+									if(item.id == thisMenu.id) return true;
+								});
+							}
 	
 							if(!existingMenu) {
 								reorgedMenus.push({
@@ -236,10 +243,14 @@ exports.strategy = (function() {
 							return;
 						}
 						else {
-							var parentMenu = reorgedMenus.find(function(item) {
-								if(item.parent_id) return false;
-								if(item.id == thisMenu.parent_id) return true;
-							});
+							var parentMenu = null;
+							
+							if(reorgedMenus.length) {
+								parentMenu = reorgedMenus.find(function(item) {
+									if(item.parent_id) return false;
+									if(item.id == thisMenu.parent_id) return true;
+								});
+							}
 	
 							if(!parentMenu) {
 								parentMenu = {
@@ -250,9 +261,13 @@ exports.strategy = (function() {
 								reorgedMenus.push(parentMenu);
 							}
 	
-							var existingSubMenu = parentMenu.subRoutes.find(function(item) {
-								if(item.id == thisMenu.id) return true;
-							});
+							var existingSubMenu = null;
+							
+							if(parentMenu.subRoutes.length) {
+								existingSubMenu = parentMenu.subRoutes.find(function(item) {
+									if(item.id == thisMenu.id) return true;
+								});
+							}
 	
 							if(!existingSubMenu) {
 								parentMenu.subRoutes.push({
