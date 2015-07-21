@@ -15,11 +15,13 @@
  * Module dependencies.
  */
 var base = require('./../component-base').baseComponent,
+	promises = require('bluebird'),
 	bcrypt = require('bcrypt-nodejs'),
+	emailExists = promises.promisifyAll(require('email-existence')),
 	path = require('path'),
 	prime = require('prime'),
-	promises = require('bluebird'),
-	uuid = require('node-uuid');
+	uuid = require('node-uuid'),
+	validator = require('validatorjs');
 
 var profilesComponent = prime({
 	'inherits': base,
@@ -112,6 +114,31 @@ var profilesComponent = prime({
 					});
 				}
 
+				var validationData = {
+						'username': (request.body.username && (request.body.username.trim() == '')) ? '' : request.body.username,
+						'firstname': (request.body.firstname && (request.body.firstname.trim() == '')) ? '' : request.body.firstname,
+						'lastname': (request.body.lastname && (request.body.lastname.trim() == '')) ? '' : request.body.lastname
+					},
+					validationRules = {
+						'username': 'required|email',
+						'firstname': 'required',
+						'lastname': 'required'
+					};
+
+				var validationResult = validator.make(validationData, validationRules);
+				if(validationResult.fails()) {
+					throw validationResult.errors.all();
+					return;
+				}
+
+				return emailExists.checkAsync(validationData.email);
+			})
+			.then(function(emailExists) {
+				if(!emailExists) {
+					throw { 'code': 403, 'message': 'Invalid Email Id (' + ((request.body.username && (request.body.username.trim() == '')) ? '' : request.body.username) + ')' };
+					return;
+				}
+
 				var randomRequestData = JSON.parse(JSON.stringify(self.$config.randomServer.options));
 				randomRequestData.data.id = uuid.v4().toString().replace(/-/g, '');
 				randomRequestData.data = JSON.stringify(randomRequestData.data);
@@ -123,14 +150,28 @@ var profilesComponent = prime({
 				newPassword = (randomPassword ? randomPassword.result.random.data[0] : null);
 
 				return new self.User({
-					'salutation': (request.body.salutation.trim() == '') ? null : request.body.salutation,
-					'first_name': (request.body.firstname.trim() == '') ? null : request.body.firstname,
-					'middle_names': (request.body.middlenames.trim() == '') ? null : request.body.middlenames,
-					'last_name': (request.body.lastname.trim() == '') ? null : request.body.lastname,
-					'suffix': (request.body.suffix.trim() == '') ? null : request.body.suffix,
-					'email': (request.body.username.trim() == '') ? null : request.body.username,
+					'salutation': (request.body.salutation && (request.body.salutation.trim() == '')) ? null : request.body.salutation,
+					'first_name': (request.body.firstname && (request.body.firstname.trim() == '')) ? null : request.body.firstname,
+					'middle_names': (request.body.middlenames && (request.body.middlenames.trim() == '')) ? null : request.body.middlenames,
+					'last_name': (request.body.lastname && (request.body.lastname.trim() == '')) ? null : request.body.lastname,
+					'suffix': (request.body.suffix && (request.body.suffix.trim() == '')) ? null : request.body.suffix,
+					'email': (request.body.username && (request.body.username.trim() == '')) ? null : request.body.username,
 					'password': bcrypt.hashSync(newPassword)
 				}).save();
+			})
+			.then(function() {
+				response.status(200).send({
+					'status': true,
+					'responseText': 'Account registration successful! Please check your email for details'
+				});
+			})
+			.catch(function(err) {
+				response.status(err.number || err.code || 403).send({
+					'status': false,
+					'responseText': err.message
+				});
+
+				throw err;
 			})
 			.then(function() {
 				var notificationOptions = JSON.parse(JSON.stringify(self.$config.notificationServer.options));
@@ -144,19 +185,9 @@ var profilesComponent = prime({
 			})
 			.then(function(notificationResponse) {
 				self.$dependencies.logger.debug('Response from Notificaton Server: ', notificationResponse);
-
-				response.status(200).send({
-					'status': true,
-					'responseText': 'Account registration successful! Please check your email for details'
-				});
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error registering account for user: ', request.body.username, '\nError: ', err);
-
-				response.status(err.number || err.code || 403).send({
-					'status': false,
-					'responseText': err.message
-				});
 			});
 		});
 

@@ -43,6 +43,7 @@
 		"connect-timeout": "*",
 		"cors": "*",
 		"ejs": "*",
+		"email-existence": "*",
 		"express-session": "*",
 		"eventemitter3": "*",
 		"inflection": "*",
@@ -63,6 +64,7 @@
 		"prime":"*",
 		"primus": "*",
 		"seneca": "*",
+		"validatorjs": "*",
 		"winston": "*",
 		"ws": "*"
 	},
