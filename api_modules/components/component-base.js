@@ -17,7 +17,7 @@ var path = require('path'),
 	prime = require('prime'),
 	promises = require('bluebird');
 
-var baseComponent = prime({
+var simpleComponent = prime({
 	'constructor': function() {
 		console.log('Constructor of the ' + this.name + ' Component');
 	},
@@ -55,7 +55,6 @@ var baseComponent = prime({
 		self['$dependencies'] = dependencies;
 
 		self._setupRouter();
-		self._addStandardRoutes();
 		self._addRoutes();
 
 		self.$loader.startAsync()
@@ -158,26 +157,8 @@ var baseComponent = prime({
 		this['$router'] = router;
 	},
 
-	'_addStandardRoutes': function() {
-		this.$router.get('/route', this._getClientRouter.bind(this));
-		this.$router.get('/mvc', this._getClientMVC.bind(this));
-		this.$router.get('/template', this._getClientTemplate.bind(this));
-	},
-
 	'_addRoutes': function() {
 		return;
-	},
-
-	'_getClientRouter': function(request, response, next) {
-		next();
-	},
-
-	'_getClientMVC': function(request, response, next) {
-		next();
-	},
-
-	'_getClientTemplate': function(request, response, next) {
-		next();
 	},
 
 	'_checkPermission': function(request, permission) {
@@ -190,9 +171,9 @@ var baseComponent = prime({
 		return true;
 	},
 
-	'name': 'baseComponent',
+	'name': 'simpleComponent',
 	'dependencies': ['logger']
 });
 
-exports.baseComponent = baseComponent;
+exports.baseComponent = simpleComponent;
 

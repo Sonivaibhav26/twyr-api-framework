@@ -131,7 +131,7 @@ var profilesComponent = prime({
 					return;
 				}
 
-				return emailExists.checkAsync(validationData.email);
+				return emailExists.checkAsync(validationData.username);
 			})
 			.then(function(emailExists) {
 				if(!emailExists) {

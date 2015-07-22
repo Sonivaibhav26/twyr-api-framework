@@ -50,7 +50,7 @@ var loggerService = prime({
 
 			// Determine the root folder of the application
 			var rootPath = path.dirname(require.main.filename);
-	
+
 			// Add transports as we go along...
 			for(var transportIdx in self.$config) {
 				var thisTransport = self.$config[transportIdx];

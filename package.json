@@ -50,6 +50,7 @@
 		"knex": "*",
 		"method-override": "*",
 		"morgan": "*",
+		"node-cache": "*",
 		"node-uuid": "*",
 		"hiredis": "*",
 		"redis": "*",
