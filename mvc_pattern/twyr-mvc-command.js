@@ -30,11 +30,28 @@ var mvcCommand = prime({
 			'__proto__': null,
 			'value': []
 		});
+
+		Object.defineProperty(this, '$logger', {
+			'__proto__': null,
+			'value': controller.$facade.$dependencies.logger
+		});
 	},
 
 	'addSubCommand': function(commandType, callback) {
 		try {
 			this.$commandMap.push(commandType);
+			callback(null, true);
+		}
+		catch(err) {
+			callback(err);
+		}
+	},
+
+	'delSubCommand': function(commandType, callback) {
+		try {
+			var commandTypeIndex = this.$commandMap.indexOf(commandType);
+			if(commandTypeIndex >= 0) this.$commandMap.splice(commandTypeIndex, 1);
+
 			callback(null, true);
 		}
 		catch(err) {
@@ -58,7 +75,7 @@ var mvcCommand = prime({
 
 			promises.all(promiseResolutions)
 			.then(function(results) {
-				callback(null, results);
+				self._mergeResults(results, callback);
 			})
 			.catch(function(err) {
 				callback(err);
@@ -66,9 +83,16 @@ var mvcCommand = prime({
 		}
 	},
 
+	// TO BE OVERRIDDEN BY ACTUAL COMMAND IMPLEMENTATION
+	// IF SUB-COMMANDS ARE ABSENT
 	'_executeSimple': function(data, callback) {
-		this.$controller.$facade.$notifier.emit((data.notificationName || data.name || ''), data);
-		callback(null, !!data);
+		callback(null, data);
+	},
+
+	// TO BE OVERRIDDEN BY ACTUAL COMMAND IMPLEMENTATION
+	// IF SUB-COMMANDS ARE PRESENT
+	'_mergeResults': function(subCommandResults, callback) {
+		callback(null, subCommandResults);
 	},
 
 	'name': 'twyrMVCCommand'

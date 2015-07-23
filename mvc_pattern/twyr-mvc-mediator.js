@@ -25,14 +25,15 @@ var mvcMediator = prime({
 			'configurable': true,
 			'value': view
 		});
+
+		Object.defineProperty(this, '$logger', {
+			'__proto__': null,
+			'value': view.$facade.$dependencies.logger
+		});
 	},
 
-	'register': function(callback) {
-		callback(null, true);
-	},
-
-	'unregister': function(callback) {
-		callback(null, true);
+	'update': function(modelData, callback) {
+		callback(null, modelData);
 	},
 
 	'name': 'twyrMVCMediator'

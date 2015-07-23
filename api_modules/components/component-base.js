@@ -49,7 +49,7 @@ var simpleComponent = prime({
 	},
 	
 	'start': function(dependencies, callback) {
-		console.log('Starting the ' + this.name + ' Component');
+		console.log('Starting the ' + this.name + ' Component with dependencies:\n', dependencies);
 		var self = this;
 
 		self['$dependencies'] = dependencies;

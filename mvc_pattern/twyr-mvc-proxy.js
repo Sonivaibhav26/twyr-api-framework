@@ -25,14 +25,16 @@ var mvcProxy = prime({
 			'configurable': true,
 			'value': model
 		});
+
+		Object.defineProperty(this, '$logger', {
+			'__proto__': null,
+			'value': model.$facade.$dependencies.logger
+		});
 	},
 
-	'register': function(callback) {
-		callback(null, true);
-	},
-
-	'unregister': function(callback) {
-		callback(null, true);
+	// TO BE OVERRIDDEN BY ACTUAL PROXY IMPLEMENTATION
+	'get': function(inputData, callback) {
+		callback(null, inputData);
 	},
 
 	'name': 'twyrMVCProxy'

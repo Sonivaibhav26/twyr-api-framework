@@ -28,17 +28,11 @@ var mvcComponent = prime({
 
 	'constructor': function() {
 		base.call(this);
-
-		Object.defineProperty(this, '$notifier', {
-			'__proto__': null,
-			'configurable': true,
-			'value': new Events()
-		});
 	},
 
-	'initialize': function(callback) {
+	'start': function(dependencies, callback) {
 		var self = this;
-		mvcComponent.parent.initialize.call(self, function(err, status) {
+		mvcComponent.parent.start.call(self, dependencies, function(err, status) {
 			if(err) {
 				callback(err);
 				return;
@@ -62,24 +56,24 @@ var mvcComponent = prime({
 				'value': promises.promisifyAll(new TwyrMVCCtrl(self))
 			});
 
-			callback(null, true);
+			callback(null, status);
 		});
 	},
 
-	'uninitialize': function(callback) {
+	'stop': function(callback) {
 		var self = this;
 
 		delete self.$controller;
 		delete self.$view;
 		delete self.$model;
 
-		mvcComponent.parent.uninitialize.call(self, function(err, status) {
+		mvcComponent.parent.stop.call(self, function(err, status) {
 			if(err) {
 				callback(err);
 				return;
 			}
 
-			callback(null, true);
+			callback(null, status);
 		});
 	},
 

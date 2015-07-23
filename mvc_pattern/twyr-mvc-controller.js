@@ -19,7 +19,7 @@ var NodeCache = require('node-cache'),
 
 var mvcController = prime({
 	'constructor': function(facade) {
-		console.log('Setting up the MVC-Controller for: ' + facade.name);
+		facade.$dependencies.logger.debug('Setting up the MVC-Controller for: ' + facade.name);
 
 		Object.defineProperty(this, '$facade', {
 			'__proto__': null,
@@ -30,30 +30,36 @@ var mvcController = prime({
 			'__proto__': null,
 			'value': promises.promisifyAll(new NodeCache({ 'stdTTL': 0, 'checkperiod': 0, 'useClones': false }))
 		});
+
+		// Promisify what we need...
+		this._getDataAsync = promises.promisify(this._getData);
+		this._updateViewAsync = promises.promisify(this._updateView);
 	},
 
 	'addCommand': function(Command, callback) {
-		var self = this,
-			command = promises.promisifyAll(new Command(self));
+		var self = this;
 
-		self.$commandMap.getAsync(command.name)
+		self.$facade.$dependencies.logger.debug('Adding Command for ' + self.$facade.name + ': ' + Command.prototype.name);
+		self.$commandMap.getAsync(Command.prototype.name)
 		.then(function(exists) {
 			if(!!exists) {
-				throw ({ 'code': 403, 'message': 'Duplicate command: ' + command.name });
+				throw ({ 'code': 403, 'message': 'Duplicate command: ' + Command.prototype.name });
 				return;
 			}
 
+			var command = promises.promisifyAll(new Command(self));
 			return self.$commandMap.setAsync(command.name, command);
 		})
 		.then(function(success) {
 			if(!success) {
-				throw ({ 'code': 403, 'message': 'Could not add command: ' + command.name });
+				throw ({ 'code': 403, 'message': 'Could not add command: ' + Command.prototype.name });
 				return;
 			}
 
 			callback(null, success);
 		})
 		.catch(function(err) {
+			self.$facade.$dependencies.logger.error('Error adding Command for ' + self.$facade.name + ': ' + Command.prototype.name + '\nError: ', err);
 			callback(err);
 		});
 	},
@@ -61,6 +67,7 @@ var mvcController = prime({
 	'delCommand': function(commandName, callback) {
 		var self = this;
 
+		self.$facade.$dependencies.logger.debug('Deleting Command for ' + self.$facade.name + ': ' + commandName);
 		self.$commandMap.delAsync(commandName)
 		.then(function() {
 			callback(null, true);
@@ -82,8 +89,10 @@ var mvcController = prime({
 		});
 	},
 
-	'execCommand': function(commandData, callback) {
+	'executeCommand': function(commandData, callback) {
 		var self = this;
+
+		self.$facade.$dependencies.logger.debug('Executing Command for ' + self.$facade.name + ': ' + commandData.name);
 		self.$commandMap.getAsync(commandData.name)
 		.then(function(CommandType) {
 			if(!CommandType) {
@@ -96,6 +105,31 @@ var mvcController = prime({
 		})
 		.then(function(result) {
 			callback(null, result);
+		})
+		.catch(function(err) {
+			self.$facade.$dependencies.logger.error('Error executing Command for ' + self.$facade.name + ': ' + commandData.name + '\nError: ', err);
+			callback(err);
+		});
+	},
+
+	'_getData': function(inputData, callback) {
+		var self = this;
+
+		self.$facade.$model.getDataAsync(inputData)
+		.then(function(outputData) {
+			callback(null, outputData);
+		})
+		.catch(function(err) {
+			callback(err);
+		});
+	},
+
+	'_updateView': function(modelData, callback) {
+		var self = this;
+
+		self.$facade.$view.updateMediatorAsync(modelData)
+		.then(function(viewData) {
+			callback(null, viewData);
 		})
 		.catch(function(err) {
 			callback(err);
