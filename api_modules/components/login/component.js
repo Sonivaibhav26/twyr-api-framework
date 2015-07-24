@@ -11,13 +11,17 @@
 "use strict";
 
 /**
- * Module dependencies.
+ * Module dependencies, required for ALL Twy'r modules
  */
-var base = require('./../component-base').baseComponent,
-	bcrypt = require('bcrypt-nodejs'),
-	path = require('path'),
+var base = require('./component-base').baseComponent,
 	prime = require('prime'),
-	promises = require('bluebird'),
+	promises = require('bluebird');
+
+/**
+ * Module dependencies, required for this module
+ */
+var bcrypt = require('bcrypt-nodejs'),
+	path = require('path'),
 	uuid = require('node-uuid');
 
 var loginComponent = prime({

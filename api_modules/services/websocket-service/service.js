@@ -11,12 +11,16 @@
 "use strict";
 
 /**
- * Module dependencies.
+ * Module dependencies, required for ALL Twy'r modules
  */
-var base = require('./../service-base').baseService,
-	path = require('path'),
+var base = require('./component-base').baseComponent,
 	prime = require('prime'),
 	promises = require('bluebird');
+
+/**
+ * Module dependencies, required for this module
+ */
+var path = require('path');
 
 var websocketService = prime({
 	'inherits': base,

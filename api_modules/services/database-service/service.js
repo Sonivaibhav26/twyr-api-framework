@@ -11,13 +11,18 @@
 "use strict";
 
 /**
- * Module dependencies.
+ * Module dependencies, required for ALL Twy'r modules
  */
-var base = require('./../service-base').baseService,
-	bookshelf = require('bookshelf'),
+var base = require('./component-base').baseComponent,
+	prime = require('prime'),
+	promises = require('bluebird');
+
+/**
+ * Module dependencies, required for this module
+ */
+var bookshelf = require('bookshelf'),
 	knex = require('knex'),
-	path = require('path'),
-	prime = require('prime');
+	path = require('path');
 
 var databaseService = prime({
 	'inherits': base,

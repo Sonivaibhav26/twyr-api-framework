@@ -12,14 +12,18 @@
 "use strict";
 
 /**
- * Module dependencies.
+ * Module dependencies, required for ALL Twy'r modules
  */
-var base = require('./../component-base').baseComponent,
-	promises = require('bluebird'),
-	bcrypt = require('bcrypt-nodejs'),
+var base = require('./component-base').baseComponent,
+	prime = require('prime'),
+	promises = require('bluebird');
+
+/**
+ * Module dependencies, required for this module
+ */
+var bcrypt = require('bcrypt-nodejs'),
 	emailExists = promises.promisifyAll(require('email-existence')),
 	path = require('path'),
-	prime = require('prime'),
 	uuid = require('node-uuid'),
 	validator = require('validatorjs');
 

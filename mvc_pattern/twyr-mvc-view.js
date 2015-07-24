@@ -11,12 +11,15 @@
 "use strict";
 
 /**
- * Module dependencies.
+ * Module dependencies, required for ALL Twy'r MVC artifacts
  */
-var NodeCache = require('node-cache'),
-	Events = require('eventemitter3'),
-	prime = require('prime'),
+var prime = require('prime'),
 	promises = require('bluebird');
+
+/**
+ * Module dependencies, required for this Twy'r MVC artifact
+ */
+var NodeCache = require('node-cache');
 
 var mvcView = prime({
 	'constructor': function(facade) {

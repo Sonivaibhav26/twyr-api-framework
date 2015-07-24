@@ -12,14 +12,17 @@
 "use strict";
 
 /**
- * Module dependencies.
+ * Module dependencies, required for ALL Twy'r modules
  */
+var prime = require('prime'),
+	promises = require('bluebird');
 
+/**
+ * Module dependencies, required for this module
+ */
 var domain = require('domain'),
 	filesystem = require('fs'),
 	path = require('path'),
-	prime = require('prime'),
-	promises = require('bluebird'),
 	uuid = require('node-uuid');
 
 var app = prime({

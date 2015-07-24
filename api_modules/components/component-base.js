@@ -11,12 +11,16 @@
 "use strict";
 
 /**
- * Module dependencies.
+ * Module dependencies, required for ALL Twy'r modules
+ */
+var prime = require('prime'),
+	promises = require('bluebird');
+
+/**
+ * Module dependencies, required for this module
  */
 var Events = require('eventemitter3'),
-	path = require('path'),
-	prime = require('prime'),
-	promises = require('bluebird');
+	path = require('path');
 
 var simpleComponent = prime({
 	'constructor': function() {

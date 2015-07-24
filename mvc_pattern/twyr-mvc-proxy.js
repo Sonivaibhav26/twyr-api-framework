@@ -11,7 +11,7 @@
 "use strict";
 
 /**
- * Module dependencies.
+ * Module dependencies, required for ALL Twy'r MVC artifacts
  */
 var prime = require('prime'),
 	promises = require('bluebird');

@@ -11,13 +11,17 @@
 "use strict";
 
 /**
- * Module dependencies.
+ * Module dependencies, required for ALL Twy'r modules
  */
 var base = require('./component-base').baseComponent,
-	Events = require('eventemitter3'),
-	path = require('path'),
 	prime = require('prime'),
 	promises = require('bluebird');
+
+/**
+ * Module dependencies, required for this module
+ */
+var Events = require('eventemitter3'),
+	path = require('path');
 
 var TwyrMVCModel = require(path.join(path.dirname(require.main.filename), 'mvc_pattern/twyr-mvc-model')).twyrMVCModel,
 	TwyrMVCView = require(path.join(path.dirname(require.main.filename), 'mvc_pattern/twyr-mvc-view')).twyrMVCView,

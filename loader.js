@@ -11,16 +11,19 @@
 "use strict";
 
 /**
- * Module dependencies.
+ * Module dependencies, required for ALL Twy'r modules
  */
-
-var dependencyGraph = require('dependency-graph').DepGraph,
-	filesystem = require('fs'),
-	path = require('path'),
-	prime = require('prime'),
+var prime = require('prime'),
 	promises = require('bluebird');
 
-var loader = prime({
+/**
+ * Module dependencies, required for this module
+ */
+var dependencyGraph = require('dependency-graph').DepGraph,
+	filesystem = require('fs'),
+	path = require('path');
+
+var twyrLoader = prime({
 	'constructor': function(basePath, module) {
 		// Sanity Check: The module itself must be valid...
 		if(!module.name || !module.dependencies) {
@@ -701,5 +704,5 @@ var loader = prime({
 	}
 });
 
-exports.loader = loader;
+exports.loader = twyrLoader;
 
