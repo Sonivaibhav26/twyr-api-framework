@@ -37,6 +37,11 @@ var mvcProxy = prime({
 		callback(null, inputData);
 	},
 
+	// TO BE OVERRIDDEN BY ACTUAL PROXY IMPLEMENTATION
+	'set': function(inputData, callback) {
+		callback(null, inputData);
+	},
+
 	'name': 'twyrMVCProxy'
 });
 

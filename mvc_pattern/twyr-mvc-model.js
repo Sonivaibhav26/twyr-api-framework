@@ -106,6 +106,36 @@ var mvcModel = prime({
 			self.$facade.$dependencies.logger.error('Error getting Data for ' + self.$facade.name + ': ' + inputData.name + '\nError:', err);
 			callback(err);
 		});
+	},
+
+	'setData': function(inputData, callback) {
+		var self = this;
+
+		self.$facade.$dependencies.logger.debug('Setting Data for ' + self.$facade.name + ': ' + inputData.name);
+		self.$proxyMap.getAsync(inputData.name)
+		.then(function(proxy) {
+			if(!proxy) {
+				throw ({ 'code': 403, 'message': 'Proxy ' + inputData.name + ' not found' });
+				return;
+			}
+
+			return promises.all([proxy.name, proxy.setAsync(inputData)]);
+		})
+		.then(function(result) {
+			var proxyName = result[0],
+				setResult = result[1];
+
+			callback(null, setResult);
+			self.notify('twyr-mvc-model-data-change', proxyName);
+		})
+		.catch(function(err) {
+			self.$facade.$dependencies.logger.error('Error setting Data for ' + self.$facade.name + ': ' + inputData.name + '\nError:', err);
+			callback(err);
+		});
+	},
+
+	'notify': function(eventName, proxyName) {
+		this.$facade.$notifier.emit(eventName, proxyName);
 	}
 });
 

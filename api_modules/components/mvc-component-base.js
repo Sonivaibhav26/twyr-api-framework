@@ -38,6 +38,12 @@ var mvcComponent = prime({
 				return;
 			}
 
+			Object.defineProperty(self, '$notifier', {
+				'__proto__': null,
+				'configurable': true,
+				'value': new Events()
+			});
+
 			Object.defineProperty(self, '$model', {
 				'__proto__': null,
 				'configurable': true,

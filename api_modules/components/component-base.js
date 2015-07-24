@@ -13,7 +13,8 @@
 /**
  * Module dependencies.
  */
-var path = require('path'),
+var Events = require('eventemitter3'),
+	path = require('path'),
 	prime = require('prime'),
 	promises = require('bluebird');
 
