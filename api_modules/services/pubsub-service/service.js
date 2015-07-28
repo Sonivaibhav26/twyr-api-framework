@@ -14,7 +14,7 @@
 /**
  * Module dependencies, required for ALL Twy'r modules
  */
-var base = require('./component-base').baseComponent,
+var base = require('./../service-base').baseService,
 	prime = require('prime'),
 	promises = require('bluebird');
 

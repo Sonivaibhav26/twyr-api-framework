@@ -13,7 +13,7 @@
 /**
  * Module dependencies, required for ALL Twy'r modules
  */
-var base = require('./component-base').baseComponent,
+var base = require('./../component-base').baseComponent,
 	prime = require('prime'),
 	promises = require('bluebird');
 

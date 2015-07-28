@@ -48,7 +48,7 @@ exports.strategy = (function() {
 			done(null, user.id);
 		}).
 		catch(function(err) {
-			logger.error('Error serializing user: ', user, '\nError: ', JSON.stringify(err));
+			logger.error('Error serializing user: ', user, '\nError: ', err);
 			done(err);
 		});
 	});
@@ -125,7 +125,7 @@ exports.strategy = (function() {
 						
 					if(usedPermissions.indexOf(thisPermissionId) < 0) {
 						usedPermissions.push(thisPermissionId);
-						promiseResolutions.push(database.knex.raw('SELECT * FROM fn_get_component_menus(\'' + thisPermissionId + '\', 2);'));
+						promiseResolutions.push(database.knex.raw('SELECT * FROM fn_get_component_menus(\'' + thisPermissionId + '\', 10);'));
 					}
 				}
 		
@@ -181,12 +181,11 @@ exports.strategy = (function() {
 							reorgedWidgets[thisWidget.position_name] = [];
 
 						if((reorgedWidgets[thisWidget.position_name]).length) {
-							var existingWidget = (reorgedWidgets[thisWidget.position_name]).find(function(item) {
-								logger.info('reorgedWidgets[' + thisWidget.position_name + ']).find(', item, ')');
+							var existingWidgets = (reorgedWidgets[thisWidget.position_name]).filter(function(item) {
 								return item.id == thisWidget.id;
 							});
 
-							if(existingWidget)
+							if(existingWidgets.length)
 								return;
 						}
 
@@ -218,16 +217,8 @@ exports.strategy = (function() {
 						reorgedMenus = [];
 
 					thisUserTenantMenus.forEach(function(thisMenu) {
-						if(!thisMenu.parent_id) {
-							var existingMenu = null;
-							
-							if(reorgedMenus.length) {
-								existingMenu = reorgedMenus.find(function(item) {
-									if(item.id == thisMenu.id) return true;
-								});
-							}
-	
-							if(!existingMenu) {
+						if(!reorgedMenus.length) {
+							if(!thisMenu.parent_id) {
 								reorgedMenus.push({
 									'id': thisMenu.id,
 									'display_name': thisMenu.display_name,
@@ -236,49 +227,83 @@ exports.strategy = (function() {
 								});
 							}
 							else {
-								existingMenu.display_name = thisMenu.display_name;
-								existingMenu.ember_route = thisMenu.ember_route;
-							}
-
-							return;
-						}
-						else {
-							var parentMenu = null;
-							
-							if(reorgedMenus.length) {
-								parentMenu = reorgedMenus.find(function(item) {
-									if(item.parent_id) return false;
-									if(item.id == thisMenu.parent_id) return true;
-								});
-							}
-	
-							if(!parentMenu) {
-								parentMenu = {
+								var parentMenu = {
 									'id': thisMenu.parent_id,
 									'subRoutes': []
 								};
-	
-								reorgedMenus.push(parentMenu);
-							}
-	
-							var existingSubMenu = null;
-							
-							if(parentMenu.subRoutes.length) {
-								existingSubMenu = parentMenu.subRoutes.find(function(item) {
-									if(item.id == thisMenu.id) return true;
-								});
-							}
-	
-							if(!existingSubMenu) {
+
 								parentMenu.subRoutes.push({
 									'id': thisMenu.id,
 									'display_name': thisMenu.display_name,
 									'ember_route': thisMenu.ember_route
 								});
+
+								reorgedMenus.push(parentMenu);
+								
+							}
+						}
+						else {
+							if(!thisMenu.parent_id) {
+								var existingMenus = reorgedMenus.filter(function(item) {
+									if(item.id == thisMenu.id) {
+										return true;
+									}
+	
+									return false;
+								});
+	
+								if(!existingMenus.length) {
+									reorgedMenus.push({
+										'id': thisMenu.id,
+										'display_name': thisMenu.display_name,
+										'ember_route': thisMenu.ember_route,
+										'subRoutes': []
+									});
+								}
+								else {
+									existingMenus[0].display_name = thisMenu.display_name;
+									existingMenus[0].ember_route = thisMenu.ember_route;
+								}
 							}
 							else {
-								existingSubMenu.display_name = thisMenu.display_name;
-								existingSubMenu.ember_route = thisMenu.ember_route;
+								var parentMenus = reorgedMenus.filter(function(item) {
+									if(item.id == thisMenu.parent_id) {
+										return true;
+									}
+
+									return false;
+								});
+
+								var parentMenu = null;
+								if(!parentMenus.length) {
+									parentMenu = {
+										'id': thisMenu.parent_id,
+										'subRoutes': []
+									};
+		
+									reorgedMenus.push(parentMenu);
+								}
+								else {
+									parentMenu = parentMenus[0];
+								}
+
+								if(parentMenu.subRoutes.length) {
+									var existingSubMenus = parentMenu.subRoutes.filter(function(item) {
+										if(item.id == thisMenu.id) {
+											return true;
+										}
+	
+										return false;
+									});
+	
+									if(!existingSubMenus.length) {
+										parentMenu.subRoutes.push({
+											'id': thisMenu.id,
+											'display_name': thisMenu.display_name,
+											'ember_route': thisMenu.ember_route
+										});
+									}
+								}
 							}
 						}
 					});

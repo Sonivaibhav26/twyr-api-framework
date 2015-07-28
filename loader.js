@@ -209,7 +209,7 @@ var twyrLoader = prime({
 				service = new service();
 
 				// Create a loader for this service
-				var serviceLoader = promises.promisifyAll(new loader(path.dirname(definedServices[idx]), service), {
+				var serviceLoader = promises.promisifyAll(new twyrLoader(path.dirname(definedServices[idx]), service), {
 					'filter': function(name, func) {
 						return true;
 					}
@@ -268,7 +268,7 @@ var twyrLoader = prime({
 				component = new component();
 
 				// Create a loader for this service
-				var componentLoader = promises.promisifyAll(new loader(path.dirname(definedComponents[idx]), component), {
+				var componentLoader = promises.promisifyAll(new twyrLoader(path.dirname(definedComponents[idx]), component), {
 					'filter': function(name, func) {
 						return true;
 					}
