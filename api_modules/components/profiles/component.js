@@ -53,6 +53,84 @@ var profilesComponent = prime({
 			});
 		}
 
+		this.$router.post('/dologin', function(request, response, next) {
+			self.$dependencies.logger.silly('Login Component /dologin invocation with request data: ', request.body.username);
+			response.type('application/javascript');
+
+			(self.$dependencies.authService.authenticate('twyr-local', function(err, user, info) {
+				if(err) {
+					self.$dependencies.logger.error('Login Component /dologin error: ', err, '\nRequest: ', request.body.username);
+					response.status(403).json({
+						'status': request.isAuthenticated(),
+						'responseText': err.message
+					});
+
+					return;
+				}
+				
+				if(!user) {
+					self.$dependencies.logger.error('\nLogin Component /dologin: User not found!\nRequest: ', request.body.username);
+					response.status(404).json({
+						'status': request.isAuthenticated(),
+						'responseText': 'Invalid credentials! Please try again!'
+					});
+					return;
+				}
+				
+				request.login(user, function(err) {
+					if(err) {
+						self.$dependencies.logger.error('\nLogin Component /dologin: request.login error: ', err, '\nRequest: ', request.body.username);
+						response.status(500).json({
+							'status': request.isAuthenticated(),
+							'responseText': 'Internal Error! Please contact us to resolve this issue!!'
+						});
+
+						return;
+					}
+
+					// Tell the rest of the portal that a new login has happened
+					self.$dependencies.logger.debug('Logged in: ', request.user.first_name + ' ' + request.user.last_name);
+					self.$dependencies.eventService.emit('login', user.id);
+
+					// Acknowledge the request back to the requester
+					response.status(200).json({
+						'status': request.isAuthenticated(),
+						'responseText': 'Login Successful! Redirecting...'
+					});
+				});
+			}))(request, response, next);
+		});
+
+		this.$router.get('/facebook', this._socialLoginRequest.bind(this, 'twyr-facebook'));
+		this.$router.get('/github', this._socialLoginRequest.bind(this, 'twyr-github'));
+		this.$router.get('/google', this._socialLoginRequest.bind(this, 'twyr-google'));
+		this.$router.get('/linkedin', this._socialLoginRequest.bind(this, 'twyr-linkedin'));
+		this.$router.get('/twitter', this._socialLoginRequest.bind(this, 'twyr-twitter'));
+
+		this.$router.get('/facebookcallback', this._socialLoginResponse.bind(this, 'twyr-facebook'));
+		this.$router.get('/githubcallback', this._socialLoginResponse.bind(this, 'twyr-github'));
+		this.$router.get('/googlecallback', this._socialLoginResponse.bind(this, 'twyr-google'));
+		this.$router.get('/linkedincallback', this._socialLoginResponse.bind(this, 'twyr-linkedin'));
+		this.$router.get('/twittercallback', this._socialLoginResponse.bind(this, 'twyr-twitter'));
+
+		this.$router.get('/dologout', function(request, response, next) {
+			var userName = request.user.first_name + ' ' + request.user.last_name;
+
+			self.$dependencies.logger.debug('Logging out: ' + userName);
+			self.$dependencies.eventService.emit('logout', request.user.id);
+
+			response.type('application/javascript');
+			self.$dependencies.cacheService.delAsync('twyr!portal!user!' + request.user.id)
+			.then(function() {
+				request.logout();
+				response.status(200).send({ 'status': !request.isAuthenticated() });
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error logging out: ' + userName + '\nError: ', err);
+				response.status(err.code || err.number || 500).send(err);
+			});
+		});
+
 		this.$router.post('/resetPassword', function(request, response, next) {
 			var dbUserRecord = null,
 				newPassword = null;
@@ -107,8 +185,9 @@ var profilesComponent = prime({
 		});
 
 		this.$router.post('/registerAccount', function(request, response, next) {
-			var newPassword = '';
+			response.type('application/javascript');
 
+			var newPassword = '';
 			new self.User({ 'email': request.body.username }).fetch()
 			.then(function(userRecord) {
 				if(userRecord) {
@@ -164,13 +243,13 @@ var profilesComponent = prime({
 				}).save();
 			})
 			.then(function() {
-				response.status(200).send({
+				response.status(200).json({
 					'status': true,
 					'responseText': 'Account registration successful! Please check your email for details'
 				});
 			})
 			.catch(function(err) {
-				response.status(err.number || err.code || 403).send({
+				response.status(err.number || err.code || 403).json({
 					'status': false,
 					'responseText': err.message
 				});
@@ -305,8 +384,61 @@ var profilesComponent = prime({
 		});
 	},
 
+	'_socialLoginRequest': function(strategy, request, response, next) {
+		var self = this,
+			whichAuth = '';
+
+		if(!request.user)
+			whichAuth = 'authenticate';
+		else
+			whichAuth = 'authorize';
+
+		(this.$dependencies.authService[whichAuth](strategy, { 'state': request.query.currentLocation }, function(err, user, info) {
+			if(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.url + '":\nStrategy: ', strategy,'\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.redirect('/error');
+			}
+			else {
+				self.$dependencies.logger.debug('Servicing request "' + request.url + '":\nStrategy: ', strategy,'\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+				response.redirect(request.query.currentLocation);
+			}
+		}))(request, response, next);
+	},
+
+	'_socialLoginResponse': function(strategy, request, response, next) {
+		var self = this,
+			whichAuth = '';
+
+		if(!request.user)
+			whichAuth = 'authenticate';
+		else
+			whichAuth = 'authorize';
+
+
+		(self.$dependencies.authService[whichAuth](strategy, function(err, user, info) {
+			if(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.url + '":\nStrategy: ', strategy,'\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.redirect('/error');
+				return;
+			}
+
+			request.login(user, function(error) {
+				if(error) {
+					self.$dependencies.logger.error('Error servicing request "' + request.url + '":\nStrategy: ', strategy,'\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', error);
+					response.redirect('/error');
+				}
+				else {
+					self.$dependencies.logger.debug('Servicing request "' + request.url + '":\nStrategy: ', strategy,'\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+					self.$dependencies.eventService.emit('login', user.id);
+
+					response.redirect(request.query.state);
+				}
+			});
+		}))(request, response, next);
+	},
+
 	'name': 'profiles',
-	'dependencies': ['logger', 'cacheService', 'databaseService'],
+	'dependencies': ['logger', 'authService', 'cacheService', 'databaseService', 'eventService'],
 
 	'User': null,
 	'UserSocialLogins': null
