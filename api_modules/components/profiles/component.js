@@ -15,6 +15,7 @@
  * Module dependencies, required for ALL Twy'r modules
  */
 var base = require('./../component-base').baseComponent,
+	inflection = require('inflection'),
 	prime = require('prime'),
 	promises = require('bluebird');
 
@@ -54,12 +55,12 @@ var profilesComponent = prime({
 		}
 
 		this.$router.post('/dologin', function(request, response, next) {
-			self.$dependencies.logger.silly('Login Component /dologin invocation with request data: ', request.body.username);
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
 
 			(self.$dependencies.authService.authenticate('twyr-local', function(err, user, info) {
 				if(err) {
-					self.$dependencies.logger.error('Login Component /dologin error: ', err, '\nRequest: ', request.body.username);
+					self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 					response.status(403).json({
 						'status': request.isAuthenticated(),
 						'responseText': err.message
@@ -69,7 +70,7 @@ var profilesComponent = prime({
 				}
 				
 				if(!user) {
-					self.$dependencies.logger.error('\nLogin Component /dologin: User not found!\nRequest: ', request.body.username);
+					self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 					response.status(404).json({
 						'status': request.isAuthenticated(),
 						'responseText': 'Invalid credentials! Please try again!'
@@ -77,9 +78,9 @@ var profilesComponent = prime({
 					return;
 				}
 				
-				request.login(user, function(err) {
-					if(err) {
-						self.$dependencies.logger.error('\nLogin Component /dologin: request.login error: ', err, '\nRequest: ', request.body.username);
+				request.login(user, function(loginErr) {
+					if(loginErr) {
+						self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', loginErr);
 						response.status(500).json({
 							'status': request.isAuthenticated(),
 							'responseText': 'Internal Error! Please contact us to resolve this issue!!'
@@ -114,24 +115,25 @@ var profilesComponent = prime({
 		this.$router.get('/twittercallback', this._socialLoginResponse.bind(this, 'twyr-twitter'));
 
 		this.$router.get('/dologout', function(request, response, next) {
-			var userName = request.user.first_name + ' ' + request.user.last_name;
-
-			self.$dependencies.logger.debug('Logging out: ' + userName);
-			self.$dependencies.eventService.emit('logout', request.user.id);
-
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
+
+			self.$dependencies.eventService.emit('logout', request.user.id);
 			self.$dependencies.cacheService.delAsync('twyr!portal!user!' + request.user.id)
 			.then(function() {
 				request.logout();
-				response.status(200).send({ 'status': !request.isAuthenticated() });
+				response.status(200).json({ 'status': !request.isAuthenticated() });
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error logging out: ' + userName + '\nError: ', err);
-				response.status(err.code || err.number || 500).send(err);
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(err.code || err.number || 500).json(err);
 			});
 		});
 
 		this.$router.post('/resetPassword', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/javascript');
+
 			var dbUserRecord = null,
 				newPassword = null;
 
@@ -161,6 +163,20 @@ var profilesComponent = prime({
 				return dbUserRecord.save();
 			})
 			.then(function() {
+				response.status(200).json({
+					'status': true,
+					'responseText': 'Reset Password Successful! Please check your email for details'
+				});
+			})
+			.catch(function(err) {
+				response.status(err.code || err.number || 500).json({
+					'status': false,
+					'responseText': err.message || 'Reset Password Failure!'
+				});
+
+				throw err;
+			})
+			.then(function() {
 				var notificationOptions = JSON.parse(JSON.stringify(self.$config.notificationServer.options));
 				notificationOptions.path = self.$config.notificationServer.resetPasswordPath;
 				notificationOptions.data = JSON.stringify({
@@ -174,17 +190,12 @@ var profilesComponent = prime({
 				self.$dependencies.logger.debug('Response from Notificaton Server: ', notificationResponse);
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error resetting password for user: ', request.body.username, '\nError: ', err);
-			})
-			.finally(function() {
-				response.status(200).send({
-					'status': true,
-					'responseText': 'Reset Password Successful! Please check your email for details'
-				});
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 			});
 		});
 
 		this.$router.post('/registerAccount', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
 
 			var newPassword = '';
@@ -251,7 +262,7 @@ var profilesComponent = prime({
 			.catch(function(err) {
 				response.status(err.number || err.code || 403).json({
 					'status': false,
-					'responseText': err.message
+					'responseText': err.message || 'Account registration failure!'
 				});
 
 				throw err;
@@ -270,11 +281,66 @@ var profilesComponent = prime({
 				self.$dependencies.logger.debug('Response from Notificaton Server: ', notificationResponse);
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error registering account for user: ', request.body.username, '\nError: ', err);
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+			});
+		});
+
+		this.$router.post('/changePassword', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/javascript');
+
+			new self.User({ 'id': request.user.id }).fetch()
+			.then(function(userRecord) {
+				if(request.body.newPassword1 != request.body.newPassword2) {
+					throw({ 'code': 403, 'message': 'The new passwords do not match' });
+					return;
+				}
+
+				if(!bcrypt.compareSync(request.body.currentPassword, userRecord.get('password'))) {
+					throw({ 'code': 403, 'message': 'Incorrect current password' });
+
+					return;
+				}
+
+				userRecord.set('password', bcrypt.hashSync(request.body.newPassword1));
+				return userRecord.save();
+			})
+			.then(function() {
+				response.status(200).json({
+					'status': true,
+					'responseText': 'Change Password Successful! Please check your email for details'
+				});
+			})
+			.catch(function(err) {
+				response.status(err.code || err.number || 500).json({
+					'status': false,
+					'responseText': err.message || err.detail || 'Change Password Failure!'
+				});
+
+				throw err;
+			})
+			.then(function() {
+				var notificationOptions = JSON.parse(JSON.stringify(self.$config.notificationServer.options));
+				notificationOptions.path = self.$config.notificationServer.resetPasswordPath;
+				notificationOptions.data = JSON.stringify({
+					'username': request.user.email,
+					'password': request.body.newPassword1
+				});
+
+				return self.$module.$utilities.restCall(self.$config.notificationServer.protocol, notificationOptions);
+			})
+			.then(function(notificationResponse) {
+				self.$dependencies.logger.debug('Response from Notificaton Server: ', notificationResponse);
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 			});
 		});
 
 		this.$router.post('/unlink/:socialNetwork', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/javascript');
+
 			self.$dependencies.cacheService.getAsync('twyr!portal!user!' + request.user.id)
 			.then(function(cachedData) {
 				cachedData = JSON.parse(cachedData);
@@ -288,8 +354,8 @@ var profilesComponent = prime({
 			})
 			.then(function() {
 				return self.UserSocialLogins
-				.where({ 'user_id': request.user.id, 'provider': request.params.socialNetwork })
-				.destroy();
+					.where({ 'user_id': request.user.id, 'provider': request.params.socialNetwork })
+					.destroy();
 			})
 			.then(function() {
 				response.status(200).send({
@@ -298,16 +364,19 @@ var profilesComponent = prime({
 				});
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error unlinking: ', request.params.socialNetwork, ' account for user: ', request.user.id,'\nError: ', err);
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 
-				response.status(err.number || err.code || 403).send({
+				response.status(err.number || err.code || 500).send({
 					'status': false,
-					'responseText': err.message
+					'responseText': err.message || 'Error unlinking your account'
 				});
 			});
 		});
 
 		this.$router.get('/:profileId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/javascript');
+
 			new self.User({ 'id': request.params.profileId }).fetch()
 			.then(function(userRecord) {
 				if(!userRecord) {
@@ -315,69 +384,62 @@ var profilesComponent = prime({
 						'number': 404,
 						'message': 'Unknown User Id. Please check your request and try again'
 					});
+
 					return;
 				}
 
 				userRecord = userRecord.toJSON();
-				var responseData = {
-					'id': userRecord.id,
-					'salutation': userRecord.salutation,
-					'firstname': userRecord.first_name,
-					'middlenames': userRecord.middle_names,
-					'lastname': userRecord.last_name,
-					'suffix': userRecord.suffix,
-					'username': userRecord.email,
-					'password1': '',
-					'password2': '',
-					'createdon': userRecord.created_on
-				};
+				delete userRecord.password;
 
-				response.status(200).json({ 'profiles': responseData });
+				var responseData = {};
+				Object.keys(userRecord).forEach(function(key) {
+					responseData[inflection.camelize(key, true)] = userRecord[key];
+				});
+
+				response.status(200).json({'profile': responseData});
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error retrieving profile data for user: ', request.params.profileId, '\nError: ', err);
-
-				response.status(422).send({
-					'errors': {
-						'firstname': [err.message || err.detail]
-					}
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(err.code || err.number || 500).json({
+					'status': false,
+					'responseText': err.message || err.detail || 'Cannot retrieve profile information'
 				});
 			});
 		});
 
 		this.$router.put('/:profileId', function(request, response, next) {
-			new self.User({ 'id': request.params.profileId }).fetch()
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/javascript');
+
+			new self.User({ 'id': request.params.profileId })
+			.fetch()
 			.then(function(userRecord) {
 				if(!userRecord) {
 					throw({
 						'number': 404,
 						'message': 'Unknown User Id. Please check your request and try again'
 					});
+
 					return;
 				}
 
 				var updatedData = request.body.profile;
-				userRecord.set('salutation', !updatedData.salutation ? null : updatedData.salutation.trim());
-				userRecord.set('first_name', !updatedData.firstname ? null : updatedData.firstname.trim());
-				userRecord.set('middle_names', !updatedData.middlenames ? null : updatedData.middlenames.trim());
-				userRecord.set('last_name', !updatedData.lastname ? null : updatedData.lastname.trim());
-				userRecord.set('suffix', !updatedData.suffix ? null : updatedData.suffix.trim());
-
-				if(!!updatedData.password1 && (updatedData.password1 == updatedData.password2)) {
-					userRecord.set('password', bcrypt.hashSync(updatedData.password1));
-				}
+				Object.keys(updatedData).forEach(function(key) {
+					self.$dependencies.logger.debug('userRecord.set(' + inflection.underscore(key) + ', ' + (updatedData[key] ? updatedData[key].trim() : null) + ')');
+					userRecord.set(inflection.underscore(key), (updatedData[key] ? updatedData[key].trim() : null));
+				});
 
 				return userRecord.save();
 			})
 			.then(function() {
-				response.status(200).json({ 'profiles': { 'id': request.params.profileId } });
+				response.status(200).json({ 'profile': request.user.id });
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error updating profile data for user: ', request.params.profileId, '\nError: ', err);
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 
-				response.status(422).send({
+				response.status(422).json({
 					'errors': {
-						'firstname': [err.message || err.detail]
+						'id': [err.message || err.detail || 'Cannot update profile information']
 					}
 				});
 			});
