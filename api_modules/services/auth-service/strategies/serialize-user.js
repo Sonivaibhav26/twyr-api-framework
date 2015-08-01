@@ -304,6 +304,14 @@ exports.strategy = (function() {
 										});
 									}
 								}
+								else {
+									parentMenu.subRoutes.push({
+										'id': thisMenu.id,
+										'icon_class': thisMenu.icon_class,
+										'display_name': thisMenu.display_name,
+										'ember_route': thisMenu.ember_route
+									});
+								}
 							}
 						}
 					});
