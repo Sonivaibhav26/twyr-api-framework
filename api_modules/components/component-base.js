@@ -20,6 +20,7 @@ var prime = require('prime'),
  * Module dependencies, required for this module
  */
 var Events = require('eventemitter3'),
+	inflection = require('inflection'),
 	path = require('path');
 
 var simpleComponent = prime({
@@ -174,6 +175,42 @@ var simpleComponent = prime({
 			return false;
 
 		return true;
+	},
+
+	'_camelize': function(inputObject) {
+		var camelizedObject = {},
+			self = this;
+
+		if(!inputObject) return inputObject;
+		
+		Object.keys(inputObject)
+		.forEach(function(key) {
+			if(!inputObject[key]) {
+				camelizedObject[inflection.camelize(key, true)] = inputObject[key];
+				return;
+			}
+
+			if(typeof inputObject[key] == 'object') {
+				if(!Object.keys(inputObject[key]).length) {
+					camelizedObject[inflection.camelize(key, true)] = inputObject[key];
+					return;
+				}
+
+				var subObject = self._camelize(inputObject[key]);
+				if(!Object.keys(subObject).length) {
+					camelizedObject[inflection.camelize(key, true)] = inputObject[key];
+				}
+				else {
+					camelizedObject[inflection.camelize(key, true)] = subObject;
+				}
+
+				return;
+			}
+
+			camelizedObject[inflection.camelize(key, true)] = inputObject[key];
+		});
+
+		return camelizedObject;
 	},
 
 	'name': 'simpleComponent',

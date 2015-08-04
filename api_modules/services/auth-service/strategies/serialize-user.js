@@ -113,6 +113,7 @@ exports.strategy = (function() {
 
 					if(!deserializedUser.tenants[thisTenantId]) {
 						deserializedUser.tenants[thisTenantId] = {};
+						(deserializedUser.tenants[thisTenantId]).id = thisTenantId;
 						(deserializedUser.tenants[thisTenantId]).permissions = [];
 						(deserializedUser.tenants[thisTenantId]).menus = [];
 						(deserializedUser.tenants[thisTenantId]).widgets = [];

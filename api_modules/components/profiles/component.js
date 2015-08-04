@@ -431,8 +431,8 @@ var profilesComponent = prime({
 
 				return userRecord.save();
 			})
-			.then(function() {
-				response.status(200).json({ 'profile': request.user.id });
+			.then(function(savedRecord) {
+				response.status(200).json({ 'profiles': { 'id': savedRecord.get('id') } });
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
