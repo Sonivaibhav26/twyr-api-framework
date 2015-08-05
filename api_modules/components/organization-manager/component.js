@@ -50,7 +50,7 @@ var organizationManagerComponent = prime({
 						return this.belongsTo(self.$TenantModel, 'parent_id');
 					},
 
-					'departments': function() {
+					'subTenants': function() {
 						return this.hasMany(self.$TenantModel, 'parent_id');
 					},
 
@@ -87,43 +87,48 @@ var organizationManagerComponent = prime({
 	'_addRoutes': function() {
 		var self = this;
 
-		this.$router.get('/organizationManagerBasicInformation/:tenantId', function(request, response, next) {
+		this.$router.get('/organizationManagerOrganizationStructures/:tenantId', function(request, response, next) {
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
 
 			new self.$TenantModel({ 'id': request.params.tenantId })
-			.fetch({ 'withRelated': ['departments', 'partners.partner', 'partnered.tenant'] })
+			.fetch({ 'withRelated': ['parent', 'subTenants', 'partners.partner', 'partnered.tenant'] })
 			.then(function(tenant) {
 				tenant = self._camelize(tenant.toJSON());
 				console.log('_camelize Tenant: ', tenant);
 
-				tenant.parent = tenant.parentId;
-				delete tenant.parentId;
+				tenant.parentName = tenant.parent ? tenant.parent.name : '';
+				delete tenant.parent;
 
-				var departments = tenant.departments;
+				var subTenants = tenant.subTenants;
+
 				tenant.departments = [];
-				for(var idx in departments) {
-					if(departments[idx].tenant_type != 'Department')
-						continue;
+				tenant.subTenants = [];
 
-					tenant.departments.push(departments[idx].id);
+				for(var idx in subTenants) {
+					if(subTenants[idx].tenantType == 'Department') {
+						tenant.departments.push(subTenants[idx].id);
+						continue;
+					}
+
+					tenant.subTenants.push(subTenants[idx].id);
 				}
 
 				var partners = tenant.partners;
 				tenant.partners = [];
 				for(var idx in partners) {
-					tenant.partners.push(partners[idx].partnerId);
+					tenant.partners.push(partners[idx].id);
 				}
 
 				var partnered = tenant.partnered;
 				delete tenant.partnered;
 				for(var idx in partnered) {
-					tenant.partners.push(partnered[idx].tenantId);
+					tenant.partners.push(partnered[idx].id);
 				}
 
 				console.log('GET Tenant Response: ', tenant);
 				response.status(200).json({
-					'organizationManagerBasicInformation': [tenant]
+					'organizationManagerOrganizationStructures': [tenant]
 				});
 			})
 			.catch(function(err) {
@@ -132,20 +137,18 @@ var organizationManagerComponent = prime({
 			});
 		});
 
-		this.$router.put('/organizationManagerBasicInformation/:tenantId', function(request, response, next) {
+		this.$router.put('/organizationManagerOrganizationStructures/:tenantId', function(request, response, next) {
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
 
 			new self.$TenantModel({ 'id': request.params.tenantId })
 			.save({
-				'parent_id': request.body.organizationManagerBasicInformation.parent,
-				'name': request.body.organizationManagerBasicInformation.name,
-				'tenant_type': request.body.organizationManagerBasicInformation.tenantType
+				'name': request.body.organizationManagerOrganizationStructure.name,
 			}, {
 				'patch': true
 			})
 			.then(function(savedDepartment) {
-				response.status(200).json({ 'organizationManagerBasicInformation': { 'id': savedDepartment.get('id') } });
+				response.status(200).json({ 'organizationManagerOrganizationStructure': { 'id': savedDepartment.get('id') } });
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
@@ -157,20 +160,20 @@ var organizationManagerComponent = prime({
 			});
 		});
 
-		this.$router.post('/organizationManagerBasicInformation', function(request, response, next) {
+		this.$router.post('/organizationManagerOrganizationStructures', function(request, response, next) {
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
 
 			new self.$TenantModel({
-				'id': request.body.organizationManagerBasicInformation.id || uuid.v4().toString(),
-				'parent_id': request.body.organizationManagerBasicInformation.parent,
-				'name': request.body.organizationManagerBasicInformation.name,
-				'tenant_type': request.body.organizationManagerBasicInformation.tenantType,
-				'created_on': request.body.organizationManagerBasicInformation.createdOn
+				'id': request.body.organizationManagerOrganizationStructures.id || uuid.v4().toString(),
+				'parent_id': request.body.organizationManagerOrganizationStructures.parentId,
+				'name': request.body.organizationManagerOrganizationStructures.name,
+				'tenant_type': request.body.organizationManagerOrganizationStructures.tenantType,
+				'created_on': request.body.organizationManagerOrganizationStructures.createdOn
 			})
 			.save(null, { 'method':'insert' })
 			.then(function(savedDepartment) {
-				response.status(200).json({ 'organizationManagerBasicInformation': { 'id': savedDepartment.get('id') } });
+				response.status(200).json({ 'organizationManagerOrganizationStructures': { 'id': savedDepartment.get('id') } });
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
@@ -182,7 +185,7 @@ var organizationManagerComponent = prime({
 			});
 		});
 
-		this.$router.delete('/organizationManagerBasicInformation/:tenantId', function(request, response, next) {
+		this.$router.delete('/organizationManagerOrganizationStructures/:tenantId', function(request, response, next) {
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
 
@@ -201,6 +204,34 @@ var organizationManagerComponent = prime({
 			});
 		});
 
+		this.$router.get('/organizationManagerBusinessPartners/:id', function(request, response, next) {
+			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/javascript');
+
+			new self.$BusinessPartnerModel({ 'id': request.params.id })
+			.fetch({ 'withRelated': [ 'tenant', 'partner' ] })
+			.then(function(businessPartner) {
+				businessPartner = self._camelize(businessPartner.toJSON());
+				response.status(200).json({
+					'organizationManagerBusinessPartner': {
+						'id': request.params.id,
+						'tenantId': (businessPartner.tenant.id == request.user.currentTenant.id) ? businessPartner.tenant.id : businessPartner.partner.id,
+						'partnerId': (businessPartner.tenant.id == request.user.currentTenant.id) ? businessPartner.partner.id : businessPartner.tenant.id,
+						'partnerName': (businessPartner.tenant.id == request.user.currentTenant.id) ? businessPartner.partner.name : businessPartner.tenant.name,
+						'createdOn': businessPartner.createdOn
+					}
+				});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).send({
+					'errors': {
+						'id': [err.message || err.detail || 'Error retrieving business partner']
+					}
+				});
+			});
+		});
+
 		this.$router.post('/organizationManagerBusinessPartners', function(request, response, next) {
 			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
@@ -208,9 +239,10 @@ var organizationManagerComponent = prime({
 			new self.$BusinessPartnerModel({
 				'id': request.body.organizationManagerBusinessPartner.id,
 				'tenant_id': request.body.organizationManagerBusinessPartner.tenantId,
-				'partner_id': request.body.organizationManagerBusinessPartner.partnerId
+				'partner_id': request.body.organizationManagerBusinessPartner.partnerId,
+				'created_on': request.body.organizationManagerBusinessPartner.createdOn
 			})
-			.save()
+			.save(null, { 'method': 'insert' })
 			.then(function(savedRel) {
 				response.status(200).json({
 					'organizationManagerBusinessPartners': { 'id': savedRel.get('id') }
@@ -220,16 +252,29 @@ var organizationManagerComponent = prime({
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).send({
 					'errors': {
-						'id': [err.message || err.detail || 'Error deleting department']
+						'id': [err.message || err.detail || 'Error adding business partner']
 					}
 				});
 			});
 		});
 
-		this.$router.delete('/organizationManagerBusinessPartners/:tenantId', function(request, response, next) {
+		this.$router.delete('/organizationManagerBusinessPartners/:id', function(request, response, next) {
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
-			response.status(200).json({});
+
+			new self.$BusinessPartnerModel({ 'id': request.params.id })
+			.destroy()
+			.then(function() {
+				response.status(200).json({});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).send({
+					'errors': {
+						'id': [err.message || err.detail || 'Error deleting department']
+					}
+				});
+			});
 		});
 	},
 
