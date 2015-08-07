@@ -50,7 +50,7 @@ var organizationManagerComponent = prime({
 						return this.belongsTo(self.$TenantModel, 'parent_id');
 					},
 
-					'subTenants': function() {
+					'suborganizations': function() {
 						return this.hasMany(self.$TenantModel, 'parent_id');
 					},
 
@@ -92,36 +92,29 @@ var organizationManagerComponent = prime({
 			response.type('application/javascript');
 
 			new self.$TenantModel({ 'id': request.params.tenantId })
-			.fetch({ 'withRelated': ['parent', 'subTenants', 'partners.partner', 'partnered.tenant'] })
+			.fetch({ 'withRelated': ['parent', 'suborganizations', 'partners.partner', 'partnered.tenant'] })
 			.then(function(tenant) {
 				tenant = self._camelize(tenant.toJSON());
-				console.log('_camelize Tenant: ', tenant);
 
-				tenant.parentName = tenant.parent ? tenant.parent.name : '';
-				delete tenant.parent;
+				tenant.parent = tenant.parent ? tenant.parent.id : null;
 
-				var subTenants = tenant.subTenants;
+				var suborganizations = tenant.suborganizations;
 
-				tenant.departments = [];
-				tenant.subTenants = [];
-
-				for(var idx in subTenants) {
-					if(subTenants[idx].tenantType == 'Department') {
-						tenant.departments.push(subTenants[idx].id);
-						continue;
-					}
-
-					tenant.subTenants.push(subTenants[idx].id);
+				tenant.suborganizations = [];
+				for(var idx in suborganizations) {
+					tenant.suborganizations.push(suborganizations[idx].id);
 				}
 
 				var partners = tenant.partners;
+				var partnered = tenant.partnered;
+
 				tenant.partners = [];
+				delete tenant.partnered;
+
 				for(var idx in partners) {
 					tenant.partners.push(partners[idx].id);
 				}
 
-				var partnered = tenant.partnered;
-				delete tenant.partnered;
 				for(var idx in partnered) {
 					tenant.partners.push(partnered[idx].id);
 				}
@@ -165,15 +158,15 @@ var organizationManagerComponent = prime({
 			response.type('application/javascript');
 
 			new self.$TenantModel({
-				'id': request.body.organizationManagerOrganizationStructures.id || uuid.v4().toString(),
-				'parent_id': request.body.organizationManagerOrganizationStructures.parentId,
-				'name': request.body.organizationManagerOrganizationStructures.name,
-				'tenant_type': request.body.organizationManagerOrganizationStructures.tenantType,
-				'created_on': request.body.organizationManagerOrganizationStructures.createdOn
+				'id': request.body.organizationManagerOrganizationStructure.id || uuid.v4().toString(),
+				'parent_id': request.body.organizationManagerOrganizationStructure.parent,
+				'name': request.body.organizationManagerOrganizationStructure.name,
+				'tenant_type': request.body.organizationManagerOrganizationStructure.tenantType,
+				'created_on': request.body.organizationManagerOrganizationStructure.createdOn
 			})
 			.save(null, { 'method':'insert' })
-			.then(function(savedDepartment) {
-				response.status(200).json({ 'organizationManagerOrganizationStructures': { 'id': savedDepartment.get('id') } });
+			.then(function(savedOrganization) {
+				response.status(200).json({ 'organizationManagerOrganizationStructure': { 'id': savedOrganization.get('id') } });
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
@@ -204,7 +197,7 @@ var organizationManagerComponent = prime({
 			});
 		});
 
-		this.$router.get('/organizationManagerBusinessPartners/:id', function(request, response, next) {
+		this.$router.get('/organizationManagerOrganizationPartners/:id', function(request, response, next) {
 			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
 
@@ -213,11 +206,10 @@ var organizationManagerComponent = prime({
 			.then(function(businessPartner) {
 				businessPartner = self._camelize(businessPartner.toJSON());
 				response.status(200).json({
-					'organizationManagerBusinessPartner': {
+					'organizationManagerOrganizationPartner': {
 						'id': request.params.id,
-						'tenantId': (businessPartner.tenant.id == request.user.currentTenant.id) ? businessPartner.tenant.id : businessPartner.partner.id,
-						'partnerId': (businessPartner.tenant.id == request.user.currentTenant.id) ? businessPartner.partner.id : businessPartner.tenant.id,
-						'partnerName': (businessPartner.tenant.id == request.user.currentTenant.id) ? businessPartner.partner.name : businessPartner.tenant.name,
+						'tenant': (businessPartner.tenant.id == request.user.currentTenant.id) ? businessPartner.tenant.id : businessPartner.partner.id,
+						'partner': (businessPartner.tenant.id == request.user.currentTenant.id) ? businessPartner.partner.id : businessPartner.tenant.id,
 						'createdOn': businessPartner.createdOn
 					}
 				});
@@ -232,20 +224,20 @@ var organizationManagerComponent = prime({
 			});
 		});
 
-		this.$router.post('/organizationManagerBusinessPartners', function(request, response, next) {
+		this.$router.post('/organizationManagerOrganizationPartners', function(request, response, next) {
 			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
 
 			new self.$BusinessPartnerModel({
-				'id': request.body.organizationManagerBusinessPartner.id,
-				'tenant_id': request.body.organizationManagerBusinessPartner.tenantId,
-				'partner_id': request.body.organizationManagerBusinessPartner.partnerId,
-				'created_on': request.body.organizationManagerBusinessPartner.createdOn
+				'id': request.body.organizationManagerOrganizationPartner.id,
+				'tenant_id': request.body.organizationManagerOrganizationPartner.tenant,
+				'partner_id': request.body.organizationManagerOrganizationPartner.partner,
+				'created_on': request.body.organizationManagerOrganizationPartner.createdOn
 			})
 			.save(null, { 'method': 'insert' })
 			.then(function(savedRel) {
 				response.status(200).json({
-					'organizationManagerBusinessPartners': { 'id': savedRel.get('id') }
+					'organizationManagerBusinessPartner': { 'id': savedRel.get('id') }
 				});
 			})
 			.catch(function(err) {
@@ -258,7 +250,7 @@ var organizationManagerComponent = prime({
 			});
 		});
 
-		this.$router.delete('/organizationManagerBusinessPartners/:id', function(request, response, next) {
+		this.$router.delete('/organizationManagerOrganizationPartners/:id', function(request, response, next) {
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
 
