@@ -58,8 +58,8 @@ var organizationManagerComponent = prime({
 						return this.hasMany(self.$BusinessPartnerModel, 'tenant_id');
 					},
 
-					'partnered': function() {
-						return this.hasMany(self.$BusinessPartnerModel, 'partner_id');
+					'users': function() {
+						return this.hasMany(self.$UserTenantModel, 'tenant_id');
 					}
 				})
 			});
@@ -80,6 +80,34 @@ var organizationManagerComponent = prime({
 				})
 			});
 
+			Object.defineProperty(self, '$UserTenantModel', {
+				'__proto__': null,
+				'value': database.Model.extend({
+					'tableName': 'users_tenants',
+					'idAttribute': 'id',
+
+					'tenant': function() {
+						return this.belongsTo(self.$TenantModel, 'tenant_id');
+					},
+
+					'user': function() {
+						return this.belongsTo(self.$UserModel, 'user_id');
+					}
+				})
+			});
+
+			Object.defineProperty(self, '$UserModel', {
+				'__proto__': null,
+				'value': database.Model.extend({
+					'tableName': 'users',
+					'idAttribute': 'id',
+
+					'tenants': function() {
+						return this.hasMany(self.$UserTenantModel, 'user_id');
+					}
+				})
+			});
+
 			callback(null, status);
 		});
 	},
@@ -92,31 +120,29 @@ var organizationManagerComponent = prime({
 			response.type('application/javascript');
 
 			new self.$TenantModel({ 'id': request.params.tenantId })
-			.fetch({ 'withRelated': ['parent', 'suborganizations', 'partners.partner', 'partnered.tenant'] })
+			.fetch({ 'withRelated': ['parent', 'suborganizations', 'partners', 'users'] })
 			.then(function(tenant) {
 				tenant = self._camelize(tenant.toJSON());
+				console.log('_camelized Tenant: ', tenant);
 
 				tenant.parent = tenant.parent ? tenant.parent.id : null;
 
 				var suborganizations = tenant.suborganizations;
-
 				tenant.suborganizations = [];
 				for(var idx in suborganizations) {
 					tenant.suborganizations.push(suborganizations[idx].id);
 				}
 
 				var partners = tenant.partners;
-				var partnered = tenant.partnered;
-
 				tenant.partners = [];
-				delete tenant.partnered;
-
 				for(var idx in partners) {
 					tenant.partners.push(partners[idx].id);
 				}
 
-				for(var idx in partnered) {
-					tenant.partners.push(partnered[idx].id);
+				var users = tenant.users;
+				tenant.users = [];
+				for(var idx in users) {
+					tenant.users.push(users[idx].id);
 				}
 
 				console.log('GET Tenant Response: ', tenant);
@@ -208,8 +234,8 @@ var organizationManagerComponent = prime({
 				response.status(200).json({
 					'organizationManagerOrganizationPartner': {
 						'id': request.params.id,
-						'tenant': (businessPartner.tenant.id == request.user.currentTenant.id) ? businessPartner.tenant.id : businessPartner.partner.id,
-						'partner': (businessPartner.tenant.id == request.user.currentTenant.id) ? businessPartner.partner.id : businessPartner.tenant.id,
+						'tenant': businessPartner.tenant.id,
+						'partner': businessPartner.partner.id,
 						'createdOn': businessPartner.createdOn
 					}
 				});
@@ -264,6 +290,106 @@ var organizationManagerComponent = prime({
 				response.status(422).send({
 					'errors': {
 						'id': [err.message || err.detail || 'Error deleting department']
+					}
+				});
+			});
+		});
+
+		this.$router.get('/organizationManagerOrganizationUsers/:id', function(request, response, next) {
+			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/javascript');
+
+			new self.$UserTenantModel({ 'id': request.params.id })
+			.fetch({ 'withRelated': [ 'tenant', 'user' ] })
+			.then(function(userTenant) {
+				userTenant = self._camelize(userTenant.toJSON());
+				response.status(200).json({
+					'organizationManagerOrganizationUser': {
+						'id': request.params.id,
+						'tenant': userTenant.tenant.id,
+						'user': userTenant.user.id,
+						'createdOn': userTenant.createdOn
+					}
+				});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).send({
+					'errors': {
+						'id': [err.message || err.detail || 'Error retrieving user tenant']
+					}
+				});
+			});
+		});
+
+		this.$router.post('/organizationManagerOrganizationUsers', function(request, response, next) {
+			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/javascript');
+
+			new self.$UserTenantModel({
+				'id': request.body.organizationManagerOrganizationUser.id,
+				'tenant_id': request.body.organizationManagerOrganizationUser.tenant,
+				'user_id': request.body.organizationManagerOrganizationUser.user,
+				'created_on': request.body.organizationManagerOrganizationUser.createdOn
+			})
+			.save(null, { 'method': 'insert' })
+			.then(function(savedRel) {
+				response.status(200).json({
+					'organizationManagerOrganizationUser': { 'id': savedRel.get('id') }
+				});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).send({
+					'errors': {
+						'id': [err.message || err.detail || 'Error adding user tenant']
+					}
+				});
+			});
+		});
+
+		this.$router.delete('/organizationManagerOrganizationUsers/:id', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/javascript');
+
+			new self.$UserTenantModel({ 'id': request.params.id })
+			.destroy()
+			.then(function() {
+				response.status(200).json({});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).send({
+					'errors': {
+						'id': [err.message || err.detail || 'Error deleting user tenant']
+					}
+				});
+			});
+		});
+
+		this.$router.get('/organizationManagerUsers/:id', function(request, response, next) {
+			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/javascript');
+
+			new self.$UserModel({ 'id': request.params.id })
+			.fetch()
+			.then(function(user) {
+				user = self._camelize(user.toJSON());
+				response.status(200).json({
+					'organizationManagerUser': {
+						'id': request.params.id,
+						'firstName': user.firstName,
+						'lastName': user.lastName,
+						'email': user.email,
+						'createdOn': user.createdOn
+					}
+				});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).send({
+					'errors': {
+						'id': [err.message || err.detail || 'Error retrieving user']
 					}
 				});
 			});
