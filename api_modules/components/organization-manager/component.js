@@ -22,6 +22,11 @@ var base = require('./../component-base').baseComponent,
  */
 var uuid = require('node-uuid');
 
+/**
+ * Magic Numbers
+ */
+var requiredPermission = '00000000-0000-0000-0000-000000000000';
+
 var organizationManagerComponent = prime({
 	'inherits': base,
 
@@ -119,6 +124,17 @@ var organizationManagerComponent = prime({
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
 
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
+				response.status(422).json({
+					'errors': {
+						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
+					}
+				});
+
+				return;
+			}
+
 			new self.$TenantModel({ 'id': request.params.tenantId })
 			.fetch({ 'withRelated': ['parent', 'suborganizations', 'partners', 'users'] })
 			.then(function(tenant) {
@@ -160,6 +176,17 @@ var organizationManagerComponent = prime({
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
 
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
+				response.status(422).json({
+					'errors': {
+						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
+					}
+				});
+
+				return;
+			}
+
 			new self.$TenantModel({ 'id': request.params.tenantId })
 			.save({
 				'name': request.body.organizationManagerOrganizationStructure.name,
@@ -182,6 +209,17 @@ var organizationManagerComponent = prime({
 		this.$router.post('/organizationManagerOrganizationStructures', function(request, response, next) {
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
+
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
+				response.status(422).json({
+					'errors': {
+						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
+					}
+				});
+
+				return;
+			}
 
 			new self.$TenantModel({
 				'id': request.body.organizationManagerOrganizationStructure.id || uuid.v4().toString(),
@@ -208,6 +246,17 @@ var organizationManagerComponent = prime({
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
 
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
+				response.status(422).json({
+					'errors': {
+						'id': ['Un-authorized access! You are not allowed to delete this information!!']
+					}
+				});
+
+				return;
+			}
+
 			new self.$TenantModel({ 'id': request.params.tenantId })
 			.destroy()
 			.then(function() {
@@ -226,6 +275,17 @@ var organizationManagerComponent = prime({
 		this.$router.get('/organizationManagerOrganizationPartners/:id', function(request, response, next) {
 			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
+
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
+				response.status(422).json({
+					'errors': {
+						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
+					}
+				});
+
+				return;
+			}
 
 			new self.$BusinessPartnerModel({ 'id': request.params.id })
 			.fetch({ 'withRelated': [ 'tenant', 'partner' ] })
@@ -254,6 +314,17 @@ var organizationManagerComponent = prime({
 			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
 
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
+				response.status(422).json({
+					'errors': {
+						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
+					}
+				});
+
+				return;
+			}
+
 			new self.$BusinessPartnerModel({
 				'id': request.body.organizationManagerOrganizationPartner.id,
 				'tenant_id': request.body.organizationManagerOrganizationPartner.tenant,
@@ -263,7 +334,7 @@ var organizationManagerComponent = prime({
 			.save(null, { 'method': 'insert' })
 			.then(function(savedRel) {
 				response.status(200).json({
-					'organizationManagerBusinessPartner': { 'id': savedRel.get('id') }
+					'organizationManagerOrganizationPartner': { 'id': savedRel.get('id') }
 				});
 			})
 			.catch(function(err) {
@@ -279,6 +350,17 @@ var organizationManagerComponent = prime({
 		this.$router.delete('/organizationManagerOrganizationPartners/:id', function(request, response, next) {
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
+
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
+				response.status(422).json({
+					'errors': {
+						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
+					}
+				});
+
+				return;
+			}
 
 			new self.$BusinessPartnerModel({ 'id': request.params.id })
 			.destroy()
@@ -298,6 +380,17 @@ var organizationManagerComponent = prime({
 		this.$router.get('/organizationManagerOrganizationUsers/:id', function(request, response, next) {
 			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
+
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
+				response.status(422).json({
+					'errors': {
+						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
+					}
+				});
+
+				return;
+			}
 
 			new self.$UserTenantModel({ 'id': request.params.id })
 			.fetch({ 'withRelated': [ 'tenant', 'user' ] })
@@ -326,6 +419,17 @@ var organizationManagerComponent = prime({
 			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
 
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
+				response.status(422).json({
+					'errors': {
+						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
+					}
+				});
+
+				return;
+			}
+
 			new self.$UserTenantModel({
 				'id': request.body.organizationManagerOrganizationUser.id,
 				'tenant_id': request.body.organizationManagerOrganizationUser.tenant,
@@ -352,6 +456,17 @@ var organizationManagerComponent = prime({
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
 
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
+				response.status(422).json({
+					'errors': {
+						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
+					}
+				});
+
+				return;
+			}
+
 			new self.$UserTenantModel({ 'id': request.params.id })
 			.destroy()
 			.then(function() {
@@ -370,6 +485,17 @@ var organizationManagerComponent = prime({
 		this.$router.get('/organizationManagerUsers/:id', function(request, response, next) {
 			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
+
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
+				response.status(422).json({
+					'errors': {
+						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
+					}
+				});
+
+				return;
+			}
 
 			new self.$UserModel({ 'id': request.params.id })
 			.fetch()
@@ -392,6 +518,28 @@ var organizationManagerComponent = prime({
 						'id': [err.message || err.detail || 'Error retrieving user']
 					}
 				});
+			});
+		});
+
+		this.$router.get('/organizationManagerGroupManagements/:tenantId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/javascript');
+
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
+				response.status(422).json({
+					'errors': {
+						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
+					}
+				});
+
+				return;
+			}
+
+			response.status(200).json({
+				'organizationManagerGroupManagements': [{
+					'id': request.params.tenantId
+				}]
 			});
 		});
 	},

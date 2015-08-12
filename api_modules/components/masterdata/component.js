@@ -85,7 +85,7 @@ var masterdataComponent = prime({
 			}
 
 //			self.$dependencies.databaseService.knex.raw('SELECT * FROM users WHERE email ILIKE \'%' + request.query.filter + '%\' AND id <> \'' + request.user.id + '\';')
-			self.$dependencies.databaseService.knex.raw('SELECT * FROM users WHERE email ILIKE \'%' + request.query.filter + '%\';')
+			self.$dependencies.databaseService.knex.raw('SELECT * FROM users WHERE email ILIKE \'%' + request.query.filter + '%\' AND is_searchable = true;')
 			.then(function(users) {
 				var responseData = [];
 				for(var idx in users.rows) {

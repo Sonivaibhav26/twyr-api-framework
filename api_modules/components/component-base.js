@@ -171,7 +171,7 @@ var simpleComponent = prime({
 		if(!request.user)
 			return false;
 
-		if(request.user.permissions.indexOf(permission) < 0)
+		if(request.user.currentTenant.permissions.indexOf(permission) < 0)
 			return false;
 
 		return true;

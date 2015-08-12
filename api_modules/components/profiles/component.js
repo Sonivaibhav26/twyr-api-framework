@@ -425,8 +425,8 @@ var profilesComponent = prime({
 
 				var updatedData = request.body.profile;
 				Object.keys(updatedData).forEach(function(key) {
-					self.$dependencies.logger.debug('userRecord.set(' + inflection.underscore(key) + ', ' + (updatedData[key] ? updatedData[key].trim() : null) + ')');
-					userRecord.set(inflection.underscore(key), (updatedData[key] ? updatedData[key].trim() : null));
+					self.$dependencies.logger.debug('userRecord.set(' + inflection.underscore(key) + ', ' + ((updatedData[key] !== undefined) ? updatedData[key] : null) + ')');
+					userRecord.set(inflection.underscore(key), ((updatedData[key] !== undefined) ? updatedData[key] : null));
 				});
 
 				return userRecord.save();
@@ -440,6 +440,30 @@ var profilesComponent = prime({
 				response.status(422).json({
 					'errors': {
 						'id': [err.message || err.detail || 'Cannot update profile information']
+					}
+				});
+			});
+		});
+
+		this.$router.delete('/:profileId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/javascript');
+
+			self.$dependencies.eventService.emit('logout', request.user.id);
+			self.$dependencies.cacheService.delAsync('twyr!portal!user!' + request.user.id)
+			.then(function() {
+				request.logout();
+				return new self.User({ 'id': request.params.profileId }).destroy();
+			})
+			.then(function() {
+				response.status(200).json({});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+
+				response.status(422).json({
+					'errors': {
+						'id': [err.message || err.detail || 'Cannot delete profile information']
 					}
 				});
 			});
