@@ -63,6 +63,10 @@ var organizationManagerComponent = prime({
 						return this.hasMany(self.$BusinessPartnerModel, 'tenant_id');
 					},
 
+					'groups': function() {
+						return this.hasMany(self.$GroupModel, 'tenant_id');
+					},
+
 					'users': function() {
 						return this.hasMany(self.$UserTenantModel, 'tenant_id');
 					}
@@ -109,6 +113,22 @@ var organizationManagerComponent = prime({
 
 					'tenants': function() {
 						return this.hasMany(self.$UserTenantModel, 'user_id');
+					}
+				})
+			});
+
+			Object.defineProperty(self, '$GroupModel', {
+				'__proto__': null,
+				'value': database.Model.extend({
+					'tableName': 'groups',
+					'idAttribute': 'id',
+
+					'tenant': function() {
+						return this.belongsTo(self.$TenantModel, 'tenant_id');
+					},
+
+					'subgroups': function() {
+						return this.hasMany(self.$GroupModel, 'parent_id');
 					}
 				})
 			});
@@ -248,6 +268,168 @@ var organizationManagerComponent = prime({
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(err.code || err.number || 500).json(err);
 			});
+		});
+
+		this.$router.get('/groupManagementTree', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
+				response.status(422).json({
+					'errors': {
+						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
+					}
+				});
+
+				return;
+			}
+
+			var tenantId = ((request.query.id != '#') ? request.query.id : request.user.currentTenant.id),
+				actualTenantId = '',
+				subTree = '',
+				fetchOptions = { 'withRelated': [] };
+
+			if(tenantId.indexOf('--') < 0) {
+				actualTenantId = tenantId;
+			}
+			else {
+				actualTenantId = tenantId.substring(0, tenantId.indexOf('--'));
+				subTree = tenantId.substring(2 + tenantId.indexOf('--'));
+			}
+
+			switch(subTree) {
+				case 'subsidiaries':
+				case 'departments':
+					fetchOptions.withRelated.push('suborganizations');
+					break;
+
+				case 'groups':
+					fetchOptions.withRelated.push('groups');
+					break;
+
+				case 'group':
+					fetchOptions.withRelated.push('subgroups');
+					break;
+			};
+
+			if(subTree != 'group') {
+				new self.$TenantModel({ 'id': actualTenantId })
+				.fetch(fetchOptions)
+				.then(function(tenant) {
+					tenant = self._camelize(tenant.toJSON());
+	
+					var responseData = [];
+					switch(subTree) {
+						case 'subsidiaries':
+							for(var idx in tenant.suborganizations) {
+								if(tenant.suborganizations[idx].tenantType != 'Organization')
+									continue;
+	
+								responseData.push({
+									'id': tenant.suborganizations[idx].id,
+									'text': tenant.suborganizations[idx].name,
+									'children' : [{
+										'id': tenant.suborganizations[idx].id + '--subsidiaries',
+										'text': '<i>Subsidiaries</i>',
+										'children': true
+									}, {
+										'id': tenant.suborganizations[idx].id + '--departments',
+										'text': '<i>Departments</i>',
+										'children': true
+									}, {
+										'id': tenant.suborganizations[idx].id + '--groups',
+										'text': '<i>Groups</i>',
+										'children': true
+									}]
+								});
+							}
+							break;
+	
+						case 'departments':
+							for(var idx in tenant.suborganizations) {
+								if(tenant.suborganizations[idx].tenantType != 'Department')
+									continue;
+	
+								responseData.push({
+									'id': tenant.suborganizations[idx].id,
+									'text': tenant.suborganizations[idx].name,
+									'children' : [{
+										'id': tenant.suborganizations[idx].id + '--departments',
+										'text': '<i>Departments</i>',
+										'children': true
+									}, {
+										'id': tenant.suborganizations[idx].id + '--groups',
+										'text': '<i>Groups</i>',
+										'children': true
+									}]
+								});
+							}
+							break;
+	
+						case 'groups':
+							for(var idx in tenant.groups) {
+								if(tenant.groups[idx].parentId)
+									continue;
+	
+								responseData.push({
+									'id': tenant.groups[idx].id + '--group',
+									'text': tenant.groups[idx].displayName,
+									'children': true
+								});
+							}
+							break;
+	
+						default:
+							responseData.push({
+								'id': tenant.id,
+								'text': tenant.name,
+								'children': [{
+									'id': tenant.id + '--subsidiaries',
+									'text': '<i>Subsidiaries</i>',
+									'children': true
+								}, {
+									'id': tenant.id + '--departments',
+									'text': '<i>Departments</i>',
+									'children': true
+								}, {
+									'id': tenant.id + '--groups',
+									'text': '<i>Groups</i>',
+									'children': true
+								}]
+							});
+							break;
+					};
+
+					response.status(200).json(responseData);
+				})
+				.catch(function(err) {
+					self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+					response.status(err.code || err.number || 500).json(err);
+				});
+			}
+			else {
+				new self.$GroupModel({ 'id': actualTenantId })
+				.fetch(fetchOptions)
+				.then(function(group) {
+					group = self._camelize(group.toJSON());
+
+					var responseData = [];
+					for(var idx in group.subgroups) {
+						responseData.push({
+							'id': group.subgroups[idx].id + '--group',
+							'text': group.subgroups[idx].displayName,
+							'children': true
+						});
+					}
+
+					response.status(200).json(responseData);
+				})
+				.catch(function(err) {
+					self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+					response.status(err.code || err.number || 500).json(err);
+				});
+			}
 		});
 
 		this.$router.post('/organizationManagerOrganizationStructures', function(request, response, next) {
@@ -517,6 +699,50 @@ var organizationManagerComponent = prime({
 				response.status(422).json({
 					'errors': {
 						'id': [err.message || err.detail || 'Cannot delete partnership information']
+					}
+				});
+			});
+		});
+
+		this.$router.get('/organizationManagerGroupManagements/:tenantId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
+				response.status(422).json({
+					'errors': {
+						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
+					}
+				});
+
+				return;
+			}
+
+			new self.$TenantModel({ 'id': request.params.tenantId })
+			.fetch({ 'withRelated': ['groups'] })
+			.then(function(tenant) {
+				tenant = self._camelize(tenant.toJSON());
+				console.log('_camelized Tenant: ', tenant);
+
+				tenant.parent = (tenant.parent ? tenant.parent.id : null);
+
+				var groups = [];
+				for(var idx in tenant.groups) {
+					groups.push(tenant.groups[idx].id);
+				}
+				tenant.groups = groups;
+
+				response.status(200).json({
+					'organizationManagerGroupManagement': tenant
+				});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+
+				response.status(422).json({
+					'errors': {
+						'id': [err.message || err.detail || 'Cannot retrieve group information']
 					}
 				});
 			});
