@@ -157,8 +157,7 @@ var organizationManagerComponent = prime({
 
 			var tenantId = ((request.query.id != '#') ? request.query.id : request.user.currentTenant.id),
 				actualTenantId = '',
-				subTree = '',
-				fetchOptions = { 'withRelated': [] };
+				subTree = '';
 
 			if(tenantId.indexOf('--') < 0) {
 				actualTenantId = tenantId;
@@ -168,19 +167,8 @@ var organizationManagerComponent = prime({
 				subTree = tenantId.substring(2 + tenantId.indexOf('--'));
 			}
 
-			switch(subTree) {
-				case 'subsidiaries':
-				case 'departments':
-					fetchOptions.withRelated.push('suborganizations');
-					break;
-
-				case 'vendors':
-					fetchOptions.withRelated.push('partners.partner');
-					break;
-			};
-
 			new self.$TenantModel({ 'id': actualTenantId })
-			.fetch(fetchOptions)
+			.fetch((subTree !== '') ? { 'withRelated': ['suborganizations'] } : null)
 			.then(function(tenant) {
 				tenant = self._camelize(tenant.toJSON());
 
@@ -202,10 +190,6 @@ var organizationManagerComponent = prime({
 									'id': tenant.suborganizations[idx].id + '--departments',
 									'text': '<i>Departments</i>',
 									'children': true
-								}, {
-									'id': tenant.suborganizations[idx].id + '--vendors',
-									'text': '<i>Vendors</i>',
-									'children': true
 								}]
 							});
 						}
@@ -223,20 +207,7 @@ var organizationManagerComponent = prime({
 									'id': tenant.suborganizations[idx].id + '--departments',
 									'text': '<i>Departments</i>',
 									'children': true
-								}, {
-									'id': tenant.suborganizations[idx].id + '--vendors',
-									'text': '<i>Vendors</i>',
-									'children': true
 								}]
-							});
-						}
-						break;
-
-					case 'vendors':
-						for(var idx in tenant.partners) {
-							responseData.push({
-								'id': tenant.partners[idx].id,
-								'text': tenant.partners[idx].partner.name
 							});
 						}
 						break;
@@ -253,10 +224,6 @@ var organizationManagerComponent = prime({
 								'id': tenant.id + '--departments',
 								'text': '<i>Departments</i>',
 								'children': true
-							}, {
-								'id': tenant.id + '--vendors',
-								'text': '<i>Vendors</i>',
-								'children': true
 							}]
 						});
 						break;
@@ -268,168 +235,6 @@ var organizationManagerComponent = prime({
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(err.code || err.number || 500).json(err);
 			});
-		});
-
-		this.$router.get('/groupManagementTree', function(request, response, next) {
-			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
-			response.type('application/json');
-
-			if(!self._checkPermission(request, requiredPermission)) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
-				response.status(422).json({
-					'errors': {
-						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
-					}
-				});
-
-				return;
-			}
-
-			var tenantId = ((request.query.id != '#') ? request.query.id : request.user.currentTenant.id),
-				actualTenantId = '',
-				subTree = '',
-				fetchOptions = { 'withRelated': [] };
-
-			if(tenantId.indexOf('--') < 0) {
-				actualTenantId = tenantId;
-			}
-			else {
-				actualTenantId = tenantId.substring(0, tenantId.indexOf('--'));
-				subTree = tenantId.substring(2 + tenantId.indexOf('--'));
-			}
-
-			switch(subTree) {
-				case 'subsidiaries':
-				case 'departments':
-					fetchOptions.withRelated.push('suborganizations');
-					break;
-
-				case 'groups':
-					fetchOptions.withRelated.push('groups');
-					break;
-
-				case 'group':
-					fetchOptions.withRelated.push('subgroups');
-					break;
-			};
-
-			if(subTree != 'group') {
-				new self.$TenantModel({ 'id': actualTenantId })
-				.fetch(fetchOptions)
-				.then(function(tenant) {
-					tenant = self._camelize(tenant.toJSON());
-	
-					var responseData = [];
-					switch(subTree) {
-						case 'subsidiaries':
-							for(var idx in tenant.suborganizations) {
-								if(tenant.suborganizations[idx].tenantType != 'Organization')
-									continue;
-	
-								responseData.push({
-									'id': tenant.suborganizations[idx].id,
-									'text': tenant.suborganizations[idx].name,
-									'children' : [{
-										'id': tenant.suborganizations[idx].id + '--subsidiaries',
-										'text': '<i>Subsidiaries</i>',
-										'children': true
-									}, {
-										'id': tenant.suborganizations[idx].id + '--departments',
-										'text': '<i>Departments</i>',
-										'children': true
-									}, {
-										'id': tenant.suborganizations[idx].id + '--groups',
-										'text': '<i>Groups</i>',
-										'children': true
-									}]
-								});
-							}
-							break;
-	
-						case 'departments':
-							for(var idx in tenant.suborganizations) {
-								if(tenant.suborganizations[idx].tenantType != 'Department')
-									continue;
-	
-								responseData.push({
-									'id': tenant.suborganizations[idx].id,
-									'text': tenant.suborganizations[idx].name,
-									'children' : [{
-										'id': tenant.suborganizations[idx].id + '--departments',
-										'text': '<i>Departments</i>',
-										'children': true
-									}, {
-										'id': tenant.suborganizations[idx].id + '--groups',
-										'text': '<i>Groups</i>',
-										'children': true
-									}]
-								});
-							}
-							break;
-	
-						case 'groups':
-							for(var idx in tenant.groups) {
-								if(tenant.groups[idx].parentId)
-									continue;
-	
-								responseData.push({
-									'id': tenant.groups[idx].id + '--group',
-									'text': tenant.groups[idx].displayName,
-									'children': true
-								});
-							}
-							break;
-	
-						default:
-							responseData.push({
-								'id': tenant.id,
-								'text': tenant.name,
-								'children': [{
-									'id': tenant.id + '--subsidiaries',
-									'text': '<i>Subsidiaries</i>',
-									'children': true
-								}, {
-									'id': tenant.id + '--departments',
-									'text': '<i>Departments</i>',
-									'children': true
-								}, {
-									'id': tenant.id + '--groups',
-									'text': '<i>Groups</i>',
-									'children': true
-								}]
-							});
-							break;
-					};
-
-					response.status(200).json(responseData);
-				})
-				.catch(function(err) {
-					self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-					response.status(err.code || err.number || 500).json(err);
-				});
-			}
-			else {
-				new self.$GroupModel({ 'id': actualTenantId })
-				.fetch(fetchOptions)
-				.then(function(group) {
-					group = self._camelize(group.toJSON());
-
-					var responseData = [];
-					for(var idx in group.subgroups) {
-						responseData.push({
-							'id': group.subgroups[idx].id + '--group',
-							'text': group.subgroups[idx].displayName,
-							'children': true
-						});
-					}
-
-					response.status(200).json(responseData);
-				})
-				.catch(function(err) {
-					self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-					response.status(err.code || err.number || 500).json(err);
-				});
-			}
 		});
 
 		this.$router.post('/organizationManagerOrganizationStructures', function(request, response, next) {
@@ -444,32 +249,32 @@ var organizationManagerComponent = prime({
 					}
 				});
 
+
 				return;
 			}
 
 			new self.$TenantModel({
 				'id': request.body.organizationManagerOrganizationStructure.id,
-				'parent_id':request.body.organizationManagerOrganizationStructure.parent,
 				'name': request.body.organizationManagerOrganizationStructure.name,
+				'parent_id': request.body.organizationManagerOrganizationStructure.parent,
 				'tenant_type': request.body.organizationManagerOrganizationStructure.tenantType,
 				'created_on': request.body.organizationManagerOrganizationStructure.createdOn
 			})
 			.save(null, { 'method': 'insert' })
 			.then(function(savedRecord) {
 				response.status(200).json({
-					'organizationManagerOrganizationStructure': { 'id': savedRecord.get('id') }
+					'organizationManagerOrganizationStructure': {
+						'id': savedRecord.get('id')
+					}
 				});
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-
-				response.status(422).json({
-					'errors': {
-						'id': [err.message || err.detail || 'Cannot retrieve organization information']
-					}
-				});
+				response.status(err.code || err.number || 500).json(err);
 			});
+
 		});
+
 
 		this.$router.get('/organizationManagerOrganizationStructures/:tenantId', function(request, response, next) {
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
@@ -487,12 +292,10 @@ var organizationManagerComponent = prime({
 			}
 
 			new self.$TenantModel({ 'id': request.params.tenantId })
-			.fetch({ 'withRelated': ['parent', 'suborganizations', 'partners'] })
+			.fetch({ 'withRelated': ['parent', 'suborganizations', 'groups', 'users', 'partners'] })
 			.then(function(tenant) {
 				tenant = self._camelize(tenant.toJSON());
-				console.log('_camelized Tenant: ', tenant);
-
-				tenant.parent = (tenant.parent ? tenant.parent.id : null);
+				tenant.parent = (tenant.parent ? ((tenant.parent.id != request.user.currentTenant.id) ? tenant.parent.id : null) : null);
 
 				var suborganizations = [];
 				for(var idx in tenant.suborganizations) {
@@ -500,11 +303,17 @@ var organizationManagerComponent = prime({
 				}
 				tenant.suborganizations = suborganizations;
 
-				var partners = [];
-				for(var idx in tenant.partners) {
-					partners.push(tenant.partners[idx].id);
+				var groups = [];
+				for(var idx in tenant.groups) {
+					groups.push(tenant.groups[idx].id);
 				}
-				tenant.partners = partners;
+				tenant.groups = groups;
+
+				var users = [];
+				for(var idx in tenant.users) {
+					users.push(tenant.users[idx].id);
+				}
+				tenant.users = users;
 
 				response.status(200).json({
 					'organizationManagerOrganizationStructure': tenant
@@ -512,12 +321,7 @@ var organizationManagerComponent = prime({
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-
-				response.status(422).json({
-					'errors': {
-						'id': [err.message || err.detail || 'Cannot retrieve organization information']
-					}
-				});
+				response.status(err.code || err.number || 500).json(err);
 			});
 		});
 
@@ -537,28 +341,19 @@ var organizationManagerComponent = prime({
 			}
 
 			new self.$TenantModel({
-				'id': request.params.tenantId,
-				'name': request.body.organizationManagerOrganizationStructure.name
+				'id': request.params.tenantId
 			})
-			.save(null, { 'method': 'update' })
-			.then(function(tenant) {
-				tenant = self._camelize(tenant.toJSON());
-				console.log('_camelized Tenant: ', tenant);
-
+			.save({ 'name': request.body.organizationManagerOrganizationStructure.name }, { 'method': 'update', 'patch': true })
+			.then(function(savedRecord) {
 				response.status(200).json({
 					'organizationManagerOrganizationStructure': {
-						'id': request.params.tenantId
+						'id': savedRecord.get('id')
 					}
 				});
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-
-				response.status(422).json({
-					'errors': {
-						'id': [err.message || err.detail || 'Cannot retrieve organization information']
-					}
-				});
+				response.status(err.code || err.number || 500).json(err);
 			});
 		});
 
@@ -579,132 +374,16 @@ var organizationManagerComponent = prime({
 
 			new self.$TenantModel({ 'id': request.params.tenantId })
 			.destroy()
-			.then(function(partnership) {
-				response.status(200).json({});
-			})
-			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-
-				response.status(422).json({
-					'errors': {
-						'id': [err.message || err.detail || 'Cannot delete partnership information']
-					}
-				});
-			});
-		});
-
-		this.$router.post('/organizationManagerOrganizationPartners', function(request, response, next) {
-			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
-			response.type('application/json');
-
-			if(!self._checkPermission(request, requiredPermission)) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
-				response.status(422).json({
-					'errors': {
-						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
-					}
-				});
-
-				return;
-			}
-
-			new self.$BusinessPartnerModel({
-				'id': request.body.organizationManagerOrganizationPartner.id,
-				'tenant_id': request.body.organizationManagerOrganizationPartner.tenant,
-				'partner_id': request.body.organizationManagerOrganizationPartner.partner	,
-				'created_on': request.body.organizationManagerOrganizationPartner.createdOn
-			})
-			.save(null, { 'method': 'insert' })
 			.then(function(savedRecord) {
-				response.status(200).json({
-					'organizationManagerOrganizationPartner': { 'id': savedRecord.get('id') }
-				});
-			})
-			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-
-				response.status(422).json({
-					'errors': {
-						'id': [err.message || err.detail || 'Cannot delete partnership information']
-					}
-				});
-			});
-		});
-
-		this.$router.get('/organizationManagerOrganizationPartners/:partnershipId', function(request, response, next) {
-			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
-			response.type('application/json');
-
-			if(!self._checkPermission(request, requiredPermission)) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
-				response.status(422).json({
-					'errors': {
-						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
-					}
-				});
-
-				return;
-			}
-
-			new self.$BusinessPartnerModel({ 'id': request.params.partnershipId })
-			.fetch()
-			.then(function(partnership) {
-				partnership = self._camelize(partnership.toJSON());
-				console.log('_camelized Partner: ', partnership);
-
-				partnership.tenant = partnership.tenantId;
-				partnership.partner = partnership.partnerId;
-
-				delete partnership.tenantId;
-				delete partnership.partnerId;
-
-				response.status(200).json({
-					'organizationManagerOrganizationPartner': partnership
-				});
-			})
-			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-
-				response.status(422).json({
-					'errors': {
-						'id': [err.message || err.detail || 'Cannot retrieve partnership information']
-					}
-				});
-			});
-		});
-
-		this.$router.delete('/organizationManagerOrganizationPartners/:partnershipId', function(request, response, next) {
-			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
-			response.type('application/json');
-
-			if(!self._checkPermission(request, requiredPermission)) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
-				response.status(422).json({
-					'errors': {
-						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
-					}
-				});
-
-				return;
-			}
-
-			new self.$BusinessPartnerModel({ 'id': request.params.partnershipId })
-			.destroy()
-			.then(function(partnership) {
 				response.status(200).json({});
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-
-				response.status(422).json({
-					'errors': {
-						'id': [err.message || err.detail || 'Cannot delete partnership information']
-					}
-				});
+				response.status(err.code || err.number || 500).json(err);
 			});
 		});
 
-		this.$router.get('/organizationManagerGroupManagements/:tenantId', function(request, response, next) {
+		this.$router.get('/organizationManagerOrganizationUserTenants/:userTenantId', function(request, response, next) {
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
@@ -719,32 +398,81 @@ var organizationManagerComponent = prime({
 				return;
 			}
 
-			new self.$TenantModel({ 'id': request.params.tenantId })
-			.fetch({ 'withRelated': ['groups'] })
-			.then(function(tenant) {
-				tenant = self._camelize(tenant.toJSON());
-				console.log('_camelized Tenant: ', tenant);
+			new self.$UserTenantModel({ 'id': request.params.userTenantId })
+			.fetch({ 'withRelated': [ 'tenant', 'user' ] })
+			.then(function(userTenantRel) {
+				userTenantRel = self._camelize(userTenantRel.toJSON());
 
-				tenant.parent = (tenant.parent ? tenant.parent.id : null);
+				userTenantRel.tenant = userTenantRel.tenantId;
+				userTenantRel.user = userTenantRel.userId;
 
-				var groups = [];
-				for(var idx in tenant.groups) {
-					groups.push(tenant.groups[idx].id);
-				}
-				tenant.groups = groups;
+				delete userTenantRel.tenantId;
+				delete userTenantRel.userId;
 
 				response.status(200).json({
-					'organizationManagerGroupManagement': tenant
+					'organizationManagerOrganizationUserTenant': userTenantRel
 				});
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(err.code || err.number || 500).json(err);
+			});
+		});
 
+		this.$router.delete('/organizationManagerOrganizationUserTenants/:userTenantId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
 				response.status(422).json({
 					'errors': {
-						'id': [err.message || err.detail || 'Cannot retrieve group information']
+						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
 					}
 				});
+
+				return;
+			}
+
+			new self.$UserTenantModel({ 'id': request.params.userTenantId })
+			.destroy()
+			.then(function(savedRecord) {
+				response.status(200).json({});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(err.code || err.number || 500).json(err);
+			});
+		});
+
+		this.$router.get('/organizationManagerOrganizationUsers/:userId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
+				response.status(422).json({
+					'errors': {
+						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
+					}
+				});
+
+				return;
+			}
+
+			new self.$UserModel({ 'id': request.params.userId })
+			.fetch()
+			.then(function(user) {
+				user = self._camelize(user.toJSON());
+				delete user.password;
+
+				response.status(200).json({
+					'organizationManagerOrganizationUser': user
+				});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(err.code || err.number || 500).json(err);
 			});
 		});
 	},
