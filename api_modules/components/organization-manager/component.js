@@ -123,13 +123,57 @@ var organizationManagerComponent = prime({
 					'tableName': 'groups',
 					'idAttribute': 'id',
 
+					'parent': function() {
+						return this.belongsTo(self.$GroupModel, 'parent_id');
+					},
+
 					'tenant': function() {
 						return this.belongsTo(self.$TenantModel, 'tenant_id');
 					},
 
 					'subgroups': function() {
 						return this.hasMany(self.$GroupModel, 'parent_id');
+					},
+
+					'permissions': function() {
+						return this.hasMany(self.$GroupComponentPermissionModel, 'group_id');
 					}
+				})
+			});
+
+			Object.defineProperty(self, '$GroupComponentPermissionModel', {
+				'__proto__': null,
+				'value': database.Model.extend({
+					'tableName': 'group_component_permissions',
+					'idAttribute': 'id',
+
+					'group': function() {
+						return this.belongsTo(self.$GroupModel, 'group_id');
+					},
+
+					'permission': function() {
+						return this.belongsTo(self.$ComponentPermissionModel, 'component_permission_id');
+					}
+				})
+			});
+
+			Object.defineProperty(self, '$ComponentPermissionModel', {
+				'__proto__': null,
+				'value': database.Model.extend({
+					'tableName': 'component_permissions',
+					'idAttribute': 'id',
+
+					'component': function() {
+						return this.belongsTo(self.$ComponentModel, 'component_id');
+					}
+				})
+			});
+
+			Object.defineProperty(self, '$ComponentModel', {
+				'__proto__': null,
+				'value': database.Model.extend({
+					'tableName': 'components',
+					'idAttribute': 'id'
 				})
 			});
 
@@ -237,6 +281,86 @@ var organizationManagerComponent = prime({
 			});
 		});
 
+		this.$router.get('/organizationStructureGroupsTree', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
+				response.status(422).json({
+					'errors': {
+						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
+					}
+				});
+
+				return;
+			}
+
+			var tenantId = ((request.query.id != '#') ? request.query.id : request.user.currentTenant.id),
+				actualTenantId = '',
+				subTree = '';
+
+			if(tenantId.indexOf('--') < 0) {
+				actualTenantId = tenantId;
+				subTree = 'tenant';
+			}
+			else {
+				actualTenantId = tenantId.substring(0, tenantId.indexOf('--'));
+				subTree = tenantId.substring(2 + tenantId.indexOf('--'));
+			}
+
+			if(subTree == 'tenant') {
+				new self.$TenantModel({ 'id': actualTenantId })
+				.fetch({ 'withRelated': ['groups'] })
+				.then(function(tenant) {
+					tenant = self._camelize(tenant.toJSON());
+	
+					var responseData = [];
+					for(var idx in tenant.groups) {
+						if(tenant.groups[idx].parentId)
+							continue;
+	
+						responseData.push({
+							'id': tenant.groups[idx].id + '--group',
+							'text': tenant.groups[idx].displayName,
+							'children' : true
+						});
+					}
+	
+					response.status(200).json(responseData);
+				})
+				.catch(function(err) {
+					self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+					response.status(err.code || err.number || 500).json(err);
+				});
+			}
+			else {
+				new self.$GroupModel({ 'id': actualTenantId })
+				.fetch({ 'withRelated': ['subgroups'] })
+				.then(function(group) {
+					group = self._camelize(group.toJSON());
+	
+					var responseData = [];
+					for(var idx in group.subgroups) {
+						if(group.subgroups[idx].tenantId != group.tenantId)
+							continue;
+	
+						responseData.push({
+							'id': group.subgroups[idx].id + '--group',
+							'text': group.subgroups[idx].displayName,
+							'children' : true
+						});
+					}
+	
+					response.status(200).json(responseData);
+				})
+				.catch(function(err) {
+					self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+					response.status(err.code || err.number || 500).json(err);
+				});
+			}
+		});
+
 		this.$router.post('/organizationManagerOrganizationStructures', function(request, response, next) {
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
@@ -270,7 +394,11 @@ var organizationManagerComponent = prime({
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-				response.status(err.code || err.number || 500).json(err);
+				response.status(422).json({
+					'errors': {
+						'id': [err.message]
+					}
+				});
 			});
 
 		});
@@ -321,7 +449,11 @@ var organizationManagerComponent = prime({
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-				response.status(err.code || err.number || 500).json(err);
+				response.status(422).json({
+					'errors': {
+						'id': [err.message]
+					}
+				});
 			});
 		});
 
@@ -353,7 +485,11 @@ var organizationManagerComponent = prime({
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-				response.status(err.code || err.number || 500).json(err);
+				response.status(422).json({
+					'errors': {
+						'id': [err.message]
+					}
+				});
 			});
 		});
 
@@ -379,7 +515,50 @@ var organizationManagerComponent = prime({
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-				response.status(err.code || err.number || 500).json(err);
+				response.status(422).json({
+					'errors': {
+						'id': [err.message]
+					}
+				});
+			});
+		});
+
+		this.$router.post('/organizationManagerOrganizationUserTenants', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
+				response.status(422).json({
+					'errors': {
+						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
+					}
+				});
+
+				return;
+			}
+
+			new self.$UserTenantModel({
+				'id': request.body.organizationManagerOrganizationUserTenant.id,
+				'tenant_id': request.body.organizationManagerOrganizationUserTenant.tenant,
+				'user_id': request.body.organizationManagerOrganizationUserTenant.user,
+				'created_on': request.body.organizationManagerOrganizationUserTenant.createdOn
+			})
+			.save(null, { 'method': 'insert' })
+			.then(function(savedRecord) {
+				response.status(200).json({
+					'organizationManagerOrganizationUserTenant' : {
+						'id': savedRecord.get('id')
+					}
+				});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).json({
+					'errors': {
+						'id': [err.message]
+					}
+				});
 			});
 		});
 
@@ -415,7 +594,11 @@ var organizationManagerComponent = prime({
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-				response.status(err.code || err.number || 500).json(err);
+				response.status(422).json({
+					'errors': {
+						'id': [err.message]
+					}
+				});
 			});
 		});
 
@@ -441,7 +624,11 @@ var organizationManagerComponent = prime({
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-				response.status(err.code || err.number || 500).json(err);
+				response.status(422).json({
+					'errors': {
+						'id': [err.message]
+					}
+				});
 			});
 		});
 
@@ -472,7 +659,284 @@ var organizationManagerComponent = prime({
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-				response.status(err.code || err.number || 500).json(err);
+				response.status(422).json({
+					'errors': {
+						'id': [err.message]
+					}
+				});
+			});
+		});
+
+		this.$router.post('/organizationManagerOrganizationGroups', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
+				response.status(422).json({
+					'errors': {
+						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
+					}
+				});
+
+				return;
+			}
+
+			new self.$GroupModel({
+				'id': request.body.organizationManagerOrganizationGroup.id,
+				'display_name': request.body.organizationManagerOrganizationGroup.displayName,
+				'parent_id': request.body.organizationManagerOrganizationGroup.parent,
+				'tenant_id': request.body.organizationManagerOrganizationGroup.tenant,
+				'created_on': request.body.organizationManagerOrganizationGroup.createdOn
+			})
+			.save(null, { 'method': 'insert' })
+			.then(function(savedRecord) {
+				response.status(200).json({
+					'organizationManagerOrganizationGroup': {
+						'id': savedRecord.get('id')
+					}
+				});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).json({
+					'errors': {
+						'id': [err.message]
+					}
+				});
+			});
+		});
+
+		this.$router.get('/organizationManagerOrganizationGroups/:groupId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
+				response.status(422).json({
+					'errors': {
+						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
+					}
+				});
+
+				return;
+			}
+
+			new self.$GroupModel({ 'id': request.params.groupId })
+			.fetch({ 'withRelated': ['subgroups', 'permissions'] })
+			.then(function(group) {
+				group = self._camelize(group.toJSON());
+
+				var subGroups = [];
+				for(var idx in group.subgroups) {
+					if(group.subgroups[idx].tenantId != group.tenantId)
+						continue;
+
+					subGroups.push(group.subgroups[idx].id);
+				}
+
+				var permissions = [];
+				for(var idx in group.permissions) {
+					permissions.push(group.permissions[idx].id);
+				}
+
+				group.parent = group.parentId;
+				group.tenant = group.tenantId;
+
+				group.subgroups = subGroups;
+				group.permissions = permissions;
+
+				delete group.canBeParent;
+				delete group.visibleToSubTenants;
+				delete group.parentId;
+				delete group.tenantId;
+
+				response.status(200).json({
+					'organizationManagerOrganizationGroup': group
+				});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).json({
+					'errors': {
+						'id': [err.message]
+					}
+				});
+			});
+		});
+
+		this.$router.put('/organizationManagerOrganizationGroups/:groupId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
+				response.status(422).json({
+					'errors': {
+						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
+					}
+				});
+
+				return;
+			}
+
+			new self.$GroupModel({ 'id': request.params.groupId })
+			.save({ 'display_name': request.body.organizationManagerOrganizationGroup.displayName }, { 'method': 'update', 'patch': true })
+			.then(function(savedRecord) {
+				response.status(200).json({
+					'organizationManagerOrganizationGroup': {
+						'id': savedRecord.get('id')
+					}
+				});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).json({
+					'errors': {
+						'id': [err.message]
+					}
+				});
+			});
+		});
+
+		this.$router.delete('/organizationManagerOrganizationGroups/:groupId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
+				response.status(422).json({
+					'errors': {
+						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
+					}
+				});
+
+				return;
+			}
+
+			new self.$GroupModel({ 'id': request.params.groupId })
+			.destroy()
+			.then(function() {
+				response.status(200).json({});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).json({
+					'errors': {
+						'id': [err.message]
+					}
+				});
+			});
+		});
+
+		this.$router.get('/organizationManagerOrganizationGroupPermissions/:groupPermissionId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
+				response.status(422).json({
+					'errors': {
+						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
+					}
+				});
+
+				return;
+			}
+
+			new self.$GroupComponentPermissionModel({ 'id': request.params.groupPermissionId })
+			.fetch()
+			.then(function(groupPermission) {
+				groupPermission = self._camelize(groupPermission.toJSON());
+
+				groupPermission.group = groupPermission.groupId;
+				groupPermission.permission = groupPermission.componentPermissionId;
+				
+				delete groupPermission.groupId;
+				delete groupPermission.componentPermissionId;
+
+				response.status(200).json({
+					'organizationManagerOrganizationGroupPermission': groupPermission
+				});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).json({
+					'errors': {
+						'id': [err.message]
+					}
+				});
+			});
+		});
+
+		this.$router.delete('/organizationManagerOrganizationGroupPermissions/:groupPermissionId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
+				response.status(422).json({
+					'errors': {
+						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
+					}
+				});
+
+				return;
+			}
+
+			new self.$GroupComponentPermissionModel({ 'id': request.params.groupPermissionId })
+			.destroy()
+			.then(function() {
+				response.status(200).json({});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).json({
+					'errors': {
+						'id': [err.message]
+					}
+				});
+			});
+		});
+
+		this.$router.get('/organizationManagerComponentPermissions/:componentPermissionId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
+				response.status(422).json({
+					'errors': {
+						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
+					}
+				});
+
+				return;
+			}
+
+			new self.$ComponentPermissionModel({ 'id': request.params.componentPermissionId })
+			.fetch({ 'withRelated': ['component'] })
+			.then(function(componentPermission) {
+				componentPermission = self._camelize(componentPermission.toJSON());
+				console.log('_camelized Component Permission: ', componentPermission);
+
+				var responseData = {};
+				responseData.id = componentPermission.id;
+				responseData.displayName = componentPermission.displayName;
+				responseData.description = componentPermission.description;
+				responseData.componentName = componentPermission.component.displayName;
+
+				response.status(200).json({
+					'organizationManagerComponentPermission': responseData
+				});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).json({
+					'errors': {
+						'id': [err.message]
+					}
+				});
 			});
 		});
 	},
