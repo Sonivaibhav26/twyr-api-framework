@@ -105,6 +105,22 @@ var organizationManagerComponent = prime({
 				})
 			});
 
+			Object.defineProperty(self, '$UserGroupModel', {
+				'__proto__': null,
+				'value': database.Model.extend({
+					'tableName': 'users_groups',
+					'idAttribute': 'id',
+
+					'group': function() {
+						return this.belongsTo(self.$GroupModel, 'group_id');
+					},
+
+					'user': function() {
+						return this.belongsTo(self.$UserModel, 'user_id');
+					}
+				})
+			});
+
 			Object.defineProperty(self, '$UserModel', {
 				'__proto__': null,
 				'value': database.Model.extend({
@@ -113,6 +129,10 @@ var organizationManagerComponent = prime({
 
 					'tenants': function() {
 						return this.hasMany(self.$UserTenantModel, 'user_id');
+					},
+
+					'groups': function() {
+						return this.hasMany(self.$UserGroupModel, 'user_id');
 					}
 				})
 			});
@@ -296,21 +316,11 @@ var organizationManagerComponent = prime({
 				return;
 			}
 
-			var tenantId = ((request.query.id != '#') ? request.query.id : request.user.currentTenant.id),
-				actualTenantId = '',
-				subTree = '';
+			var tenantId = ((request.query.tenantId != '#') ? request.query.tenantId : request.user.currentTenant.id),
+				groupId =  ((request.query.groupId != '#') ? request.query.groupId : null);
 
-			if(tenantId.indexOf('--') < 0) {
-				actualTenantId = tenantId;
-				subTree = 'tenant';
-			}
-			else {
-				actualTenantId = tenantId.substring(0, tenantId.indexOf('--'));
-				subTree = tenantId.substring(2 + tenantId.indexOf('--'));
-			}
-
-			if(subTree == 'tenant') {
-				new self.$TenantModel({ 'id': actualTenantId })
+			if(!groupId) {
+				new self.$TenantModel({ 'id': tenantId })
 				.fetch({ 'withRelated': ['groups'] })
 				.then(function(tenant) {
 					tenant = self._camelize(tenant.toJSON());
@@ -321,7 +331,7 @@ var organizationManagerComponent = prime({
 							continue;
 	
 						responseData.push({
-							'id': tenant.groups[idx].id + '--group',
+							'id': tenant.groups[idx].id,
 							'text': tenant.groups[idx].displayName,
 							'children' : true
 						});
@@ -335,7 +345,7 @@ var organizationManagerComponent = prime({
 				});
 			}
 			else {
-				new self.$GroupModel({ 'id': actualTenantId })
+				new self.$GroupModel({ 'id': groupId })
 				.fetch({ 'withRelated': ['subgroups'] })
 				.then(function(group) {
 					group = self._camelize(group.toJSON());
@@ -346,7 +356,7 @@ var organizationManagerComponent = prime({
 							continue;
 	
 						responseData.push({
-							'id': group.subgroups[idx].id + '--group',
+							'id': group.subgroups[idx].id,
 							'text': group.subgroups[idx].displayName,
 							'children' : true
 						});
@@ -423,7 +433,9 @@ var organizationManagerComponent = prime({
 			.fetch({ 'withRelated': ['parent', 'suborganizations', 'groups', 'users', 'partners'] })
 			.then(function(tenant) {
 				tenant = self._camelize(tenant.toJSON());
-				tenant.parent = (tenant.parent ? ((tenant.parent.id != request.user.currentTenant.id) ? tenant.parent.id : null) : null);
+
+				tenant.parent = (tenant.parent ? ((tenant.id != request.user.currentTenant.id) ? tenant.parent.id : null) : null);
+				delete tenant.parentId;
 
 				var suborganizations = [];
 				for(var idx in tenant.suborganizations) {
@@ -632,6 +644,110 @@ var organizationManagerComponent = prime({
 			});
 		});
 
+		this.$router.post('/organizationManagerOrganizationUserGroups', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
+				response.status(422).json({
+					'errors': {
+						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
+					}
+				});
+
+				return;
+			}
+
+			new self.$UserGroupModel({
+				'id': request.body.organizationManagerOrganizationUserGroup.id,
+				'user_id': request.body.organizationManagerOrganizationUserGroup.user,
+				'group_id': request.body.organizationManagerOrganizationUserGroup.group,
+				'created_on': request.body.organizationManagerOrganizationUserGroup.createdOn
+			})
+			.save(null, { 'method': 'insert' })
+			.then(function(savedRecord) {
+				response.status(200).json({
+					
+				});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).json({
+					'errors': {
+						'id': [err.message]
+					}
+				});
+			});
+		});
+
+		this.$router.get('/organizationManagerOrganizationUserGroups/:userGroupId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
+				response.status(422).json({
+					'errors': {
+						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
+					}
+				});
+
+				return;
+			}
+
+			new self.$UserGroupModel({ 'id': request.params.userGroupId })
+			.fetch()
+			.then(function(userGroup) {
+				response.status(200).json({
+					'organizationManagerOrganizationUserGroup': {
+						'id': userGroup.get('id'),
+						'user': userGroup.get('user_id'),
+						'group': userGroup.get('group_id'),
+						'createdOn': userGroup.get('created_on')
+					}
+				});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).json({
+					'errors': {
+						'id': [err.message]
+					}
+				});
+			});
+		});
+
+		this.$router.delete('/organizationManagerOrganizationUserGroups/:userGroupId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
+				response.status(422).json({
+					'errors': {
+						'id': ['Un-authorized access! You are not allowed to retrieve this information!!']
+					}
+				});
+
+				return;
+			}
+
+			new self.$UserGroupModel({ 'id': request.params.userGroupId })
+			.destroy()
+			.then(function(userGroup) {
+				response.status(200).json({});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).json({
+					'errors': {
+						'id': [err.message]
+					}
+				});
+			});
+		});
+
 		this.$router.get('/organizationManagerOrganizationUsers/:userId', function(request, response, next) {
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
@@ -648,10 +764,17 @@ var organizationManagerComponent = prime({
 			}
 
 			new self.$UserModel({ 'id': request.params.userId })
-			.fetch()
+			.fetch({ 'withRelated': ['groups'] })
 			.then(function(user) {
 				user = self._camelize(user.toJSON());
 				delete user.password;
+
+				console.log('_camelized User: ', user);
+				var userGroups = [];
+				for(var idx in user.groups) {
+					userGroups.push(user.groups[idx].id);
+				}
+				user.groups = userGroups;
 
 				response.status(200).json({
 					'organizationManagerOrganizationUser': user
@@ -829,6 +952,45 @@ var organizationManagerComponent = prime({
 			});
 		});
 
+		this.$router.post('/organizationManagerOrganizationGroupPermissions', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			if(!self._checkPermission(request, requiredPermission)) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: Un-authorized access');
+				response.status(422).json({
+					'errors': {
+						'id': ['Un-authorized access! You are not allowed to add permission to group!!']
+					}
+				});
+
+				return;
+			}
+
+			new self.$GroupComponentPermissionModel({
+				'id': request.body.organizationManagerOrganizationGroupPermission.id,
+				'group_id': request.body.organizationManagerOrganizationGroupPermission.group,
+				'component_permission_id': request.body.organizationManagerOrganizationGroupPermission.permission,
+				'created_on': request.body.organizationManagerOrganizationGroupPermission.createdOn
+			})
+			.save(null, { 'method': 'insert' })
+			.then(function(savedRecord) {
+				response.status(200).json({
+					'organizationManagerOrganizationGroupPermission': {
+						'id': savedRecord.get('id')
+					}
+				});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).json({
+					'errors': {
+						'id': [err.message]
+					}
+				});
+			});
+		});
+
 		this.$router.get('/organizationManagerOrganizationGroupPermissions/:groupPermissionId', function(request, response, next) {
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
@@ -918,7 +1080,6 @@ var organizationManagerComponent = prime({
 			.fetch({ 'withRelated': ['component'] })
 			.then(function(componentPermission) {
 				componentPermission = self._camelize(componentPermission.toJSON());
-				console.log('_camelized Component Permission: ', componentPermission);
 
 				var responseData = {};
 				responseData.id = componentPermission.id;

@@ -84,8 +84,7 @@ var masterdataComponent = prime({
 				return;
 			}
 
-//			self.$dependencies.databaseService.knex.raw('SELECT * FROM users WHERE email ILIKE \'%' + request.query.filter + '%\' AND id <> \'' + request.user.id + '\';')
-			self.$dependencies.databaseService.knex.raw('SELECT * FROM users WHERE email ILIKE \'%' + request.query.filter + '%\' AND is_searchable = true;')
+			self.$dependencies.databaseService.knex.raw('SELECT * FROM users WHERE email ILIKE \'%' + request.query.filter + '%\' AND id <> \'' + request.user.id + '\' AND is_searchable = true;')
 			.then(function(users) {
 				var responseData = [];
 				for(var idx in users.rows) {
@@ -98,6 +97,74 @@ var masterdataComponent = prime({
 
 				self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nResponse: ', responseData);
 				response.status(200).json(responseData);
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).json({ 'code': 422, 'message': err.message || err.detail || 'Error fetching genders from the database' });
+			});
+		});
+
+		this.$router.get('/groupPermissions', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/javascript');
+
+			if(!request.user) {
+				response.status(200).send('');
+				return;
+			}
+
+			self.$dependencies.databaseService.knex.raw('SELECT B.id, A.display_name AS component, B.display_name AS permission FROM components A INNER JOIN component_permissions B ON (B.component_id = A.id) WHERE B.id IN (SELECT component_permission_id FROM group_component_permissions WHERE group_id = \'' + request.query.parentId + '\') AND B.id NOT IN (SELECT component_permission_id FROM group_component_permissions WHERE group_id = \'' + request.query.groupId + '\');')
+			.then(function(remainingPermissions) {
+				var responseData = [];
+				for(var idx in remainingPermissions.rows) {
+					responseData.push({
+						'id': remainingPermissions.rows[idx].id,
+						'name': remainingPermissions.rows[idx].component + ': ' + remainingPermissions.rows[idx].permission
+					});
+				}
+
+				self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nResponse: ', responseData);
+				response.status(200).json(responseData);
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).json({ 'code': 422, 'message': err.message || err.detail || 'Error fetching genders from the database' });
+			});
+		});
+
+		this.$router.get('/userGroups', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/javascript');
+
+			if(!request.user) {
+				response.status(200).send('');
+				return;
+			}
+
+			self.$dependencies.databaseService.knex.raw('SELECT id FROM groups WHERE tenant_id = \'' + request.query.tenantId + '\' AND id IN (SELECT group_id FROM users_groups WHERE user_id = \'' + request.query.userId + '\');')
+			.then(function(userGroups) {
+				var promiseResolutions = [];
+
+				for(var idx in userGroups.rows) {
+					promiseResolutions.push(self.$dependencies.databaseService.knex.raw('SELECT id FROM fn_get_group_tree(\'' + userGroups.rows[idx].id + '\');'));
+				}
+
+				return promises.all(promiseResolutions);
+			})
+			.then(function(allUserGroups) {
+				var consolidatedUserGroups = [];
+				for(var idx in allUserGroups) {
+					var thisUserGroups = allUserGroups[idx].rows;
+					for(var jdx in thisUserGroups) {
+						if(consolidatedUserGroups.indexOf(thisUserGroups[jdx].id) < 0)
+							consolidatedUserGroups.push(thisUserGroups[jdx].id);
+					}
+				}
+
+				return self.$dependencies.databaseService.knex.raw('SELECT id, display_name FROM groups WHERE tenant_id = \'' + request.query.tenantId + '\' AND id NOT IN (\'' + consolidatedUserGroups.join('\',\'') + '\');');
+			})
+			.then(function(remainingUserGroups) {
+				response.status(200).json(remainingUserGroups.rows);
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
