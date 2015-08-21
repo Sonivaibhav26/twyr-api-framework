@@ -133,18 +133,6 @@ var app = prime({
 				.use(logger('combined', {
 					'stream': loggerStream
 				}))
-				.use(function(request, response, next) {
-					var requestDomain = domain.create();
-					requestDomain.add(request);
-					requestDomain.add(response);
-
-					requestDomain.on('error', function(error) {
-						loggerSrvc.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', error);
-						response.status(500).redirect('/error.html');
-					});
-
-					next();
-				})
 				.use(debounce())
 				.use(cors(corsOptions))
 				.use(acceptOverride())
@@ -152,6 +140,9 @@ var app = prime({
 				.use(compress())
 				.use(poweredBy(self.$config.poweredBy))
 				.use(timeout(self.$config.requestTimeout * 1000))
+				.use(flash())
+				.use(self.$cookieParser)
+				.use(self.$session)
 				.use(bodyParser.json({
 					'limit': self.$config.maxRequestSize
 				}))
@@ -165,11 +156,20 @@ var app = prime({
 					'extended': true,
 					'limit': self.$config.maxRequestSize
 				}))
-				.use(flash())
-				.use(self.$cookieParser)
-				.use(self.$session)
 				.use(self.$services.authService.getInterface().initialize())
-				.use(self.$services.authService.getInterface().session());
+				.use(self.$services.authService.getInterface().session())
+				.use(function(request, response, next) {
+					var requestDomain = domain.create();
+					requestDomain.add(request);
+					requestDomain.add(response);
+
+					requestDomain.on('error', function(error) {
+						loggerSrvc.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', error);
+						response.status(500).redirect('/error.html');
+					});
+
+					next();
+				});
 
 			// Step 3.3: Hook-in the component routers...
 			for(var idx in self.$components) {

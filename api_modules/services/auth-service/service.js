@@ -67,7 +67,6 @@ var authService = prime({
 
 			callback(null, status);
 		});
-
 	},
 
 	'getInterface': function() {

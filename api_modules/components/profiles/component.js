@@ -36,29 +36,47 @@ var profilesComponent = prime({
 		this._loadConfig(path.join(__dirname, 'config.js'));
 	},
 
-	'_addRoutes': function() {
+	'start': function(dependencies, callback) {
 		var self = this;
 
-		// Setup the models, if it hasn't been init-ed yet
-		if(!this.User) {
-			this.User = self.$dependencies.databaseService.Model.extend({
-				'tableName': 'users',
-				'idAttribute': 'id'
-			});
-		}
+		profilesComponent.parent.start.call(self, dependencies, function(err, status) {
+			if(err) {
+				callback(err);
+				return;
+			}
 
-		if(!this.UserSocialLogins) {
-			this.UserSocialLogins = self.$dependencies.databaseService.Model.extend({
-				'tableName': 'user_social_logins',
-				'idAttribute': 'id'
+			var database = self.$dependencies.databaseService;
+
+			Object.defineProperty(self, '$UserModel', {
+				'__proto__': null,
+				'value': database.Model.extend({
+					'tableName': 'users',
+					'idAttribute': 'id'
+				})
 			});
-		}
+
+			Object.defineProperty(self, '$UserSocialLoginModel', {
+				'__proto__': null,
+				'value': database.Model.extend({
+					'tableName': 'user_social_logins',
+					'idAttribute': 'id'
+				})
+			});
+
+			callback(null, status);
+		});
+	},
+
+	'_addRoutes': function() {
+		var self = this;
 
 		this.$router.post('/dologin', function(request, response, next) {
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
 
 			(self.$dependencies.authService.authenticate('twyr-local', function(err, user, info) {
+				self.$dependencies.logger.silly('twyr-local authentication result: \nErr: ', err, '\nUser: ', user, '\nInfo: ', info);
+
 				if(err) {
 					self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 					response.status(403).json({
@@ -137,7 +155,7 @@ var profilesComponent = prime({
 			var dbUserRecord = null,
 				newPassword = null;
 
-			new self.User({ 'email': request.body.username }).fetch()
+			new self.$UserModel({ 'email': request.body.username }).fetch()
 			.then(function(userRecord) {
 				if(!userRecord) {
 					throw ({
@@ -199,7 +217,7 @@ var profilesComponent = prime({
 			response.type('application/javascript');
 
 			var newPassword = '';
-			new self.User({ 'email': request.body.username }).fetch()
+			new self.$UserModel({ 'email': request.body.username }).fetch()
 			.then(function(userRecord) {
 				if(userRecord) {
 					throw({
@@ -243,7 +261,7 @@ var profilesComponent = prime({
 				randomPassword = (randomPassword ? JSON.parse(randomPassword) : null);
 				newPassword = (randomPassword ? randomPassword.result.random.data[0] : null);
 
-				return new self.User({
+				return new self.$UserModel({
 					'salutation': (request.body.salutation && (request.body.salutation.trim() == '')) ? null : request.body.salutation,
 					'first_name': (request.body.firstname && (request.body.firstname.trim() == '')) ? null : request.body.firstname,
 					'middle_names': (request.body.middlenames && (request.body.middlenames.trim() == '')) ? null : request.body.middlenames,
@@ -289,7 +307,7 @@ var profilesComponent = prime({
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
 
-			new self.User({ 'id': request.user.id }).fetch()
+			new self.$UserModel({ 'id': request.user.id }).fetch()
 			.then(function(userRecord) {
 				if(request.body.newPassword1 != request.body.newPassword2) {
 					throw({ 'code': 403, 'message': 'The new passwords do not match' });
@@ -353,7 +371,7 @@ var profilesComponent = prime({
 				return cacheMulti.execAsync();
 			})
 			.then(function() {
-				return self.UserSocialLogins
+				return self.$UserSocialLoginModel
 					.where({ 'user_id': request.user.id, 'provider': request.params.socialNetwork })
 					.destroy();
 			})
@@ -377,7 +395,7 @@ var profilesComponent = prime({
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
 
-			new self.User({ 'id': request.params.profileId }).fetch()
+			new self.$UserModel({ 'id': request.params.profileId }).fetch()
 			.then(function(userRecord) {
 				if(!userRecord) {
 					throw({
@@ -411,7 +429,7 @@ var profilesComponent = prime({
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
 
-			new self.User({ 'id': request.params.profileId })
+			new self.$UserModel({ 'id': request.params.profileId })
 			.fetch()
 			.then(function(userRecord) {
 				if(!userRecord) {
@@ -453,7 +471,7 @@ var profilesComponent = prime({
 			self.$dependencies.cacheService.delAsync('twyr!portal!user!' + request.user.id)
 			.then(function() {
 				request.logout();
-				return new self.User({ 'id': request.params.profileId }).destroy();
+				return new self.$UserModel({ 'id': request.params.profileId }).destroy();
 			})
 			.then(function() {
 				response.status(200).json({});
@@ -524,10 +542,7 @@ var profilesComponent = prime({
 	},
 
 	'name': 'profiles',
-	'dependencies': ['logger', 'authService', 'cacheService', 'databaseService', 'eventService'],
-
-	'User': null,
-	'UserSocialLogins': null
+	'dependencies': ['logger', 'authService', 'cacheService', 'databaseService', 'eventService']
 });
 
 exports.component = profilesComponent;

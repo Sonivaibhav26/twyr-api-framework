@@ -161,7 +161,10 @@ var masterdataComponent = prime({
 					}
 				}
 
-				return self.$dependencies.databaseService.knex.raw('SELECT id, display_name FROM groups WHERE tenant_id = \'' + request.query.tenantId + '\' AND id NOT IN (\'' + consolidatedUserGroups.join('\',\'') + '\');');
+				if(consolidatedUserGroups.length)
+					return self.$dependencies.databaseService.knex.raw('SELECT id, display_name FROM groups WHERE tenant_id = \'' + request.query.tenantId + '\' AND id NOT IN (\'' + consolidatedUserGroups.join('\',\'') + '\');');
+				else
+					return self.$dependencies.databaseService.knex.raw('SELECT id, display_name FROM groups WHERE tenant_id = \'' + request.query.tenantId + '\';');
 			})
 			.then(function(remainingUserGroups) {
 				response.status(200).json(remainingUserGroups.rows);

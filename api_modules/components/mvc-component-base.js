@@ -88,7 +88,7 @@ var mvcComponent = prime({
 	},
 
 	'name': 'mvcComponent',
-	'dependencies': ['logger']
+	'dependencies': ['logger', 'databaseService']
 });
 
 exports.baseComponent = mvcComponent;

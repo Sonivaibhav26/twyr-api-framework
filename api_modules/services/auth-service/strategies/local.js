@@ -19,7 +19,6 @@ var bcrypt = require('bcrypt-nodejs'),
 exports.strategy = (function() {
 	var self = this,
 		auth = self.$passport,
-		cache = self.$dependencies['cacheService'],
 		database = self.$dependencies['databaseService'],
 		logger = self.$dependencies['logger'];
 
