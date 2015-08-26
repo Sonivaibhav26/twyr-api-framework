@@ -15,7 +15,6 @@
  * Module dependencies, required for ALL Twy'r modules
  */
 var base = require('./../component-base').baseComponent,
-	inflection = require('inflection'),
 	prime = require('prime'),
 	promises = require('bluebird');
 
@@ -24,6 +23,7 @@ var base = require('./../component-base').baseComponent,
  */
 var bcrypt = require('bcrypt-nodejs'),
 	emailExists = promises.promisifyAll(require('email-existence')),
+	inflection = require('inflection'),
 	path = require('path'),
 	uuid = require('node-uuid'),
 	validator = require('validatorjs');
@@ -429,7 +429,7 @@ var profilesComponent = prime({
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
 
-			new self.$UserModel({ 'id': request.params.profileId })
+			new self.$UserModel({ 'id': request.user.id })
 			.fetch()
 			.then(function(userRecord) {
 				if(!userRecord) {

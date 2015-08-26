@@ -78,22 +78,28 @@ var websocketService = prime({
 		// Step 2: Put in the authorization hook
 		self.$websocketServer.authorize(self._authorizeWebsocketConnection.bind(self));
 
-		// Step 3: Attach the event handlers...
+		// Step 3: Primus extensions...
+		self.$websocketServer.before('cookies', self.$module.$cookieParser);
+		self.$websocketServer.before('session', self.$module.$session);
+		self.$websocketServer.use('rooms', require('primus-rooms'));
+
+		// Step 4: Attach the event handlers...
 		self.$websocketServer.on('initialised', self._websocketServerInitialised.bind(self));
 		self.$websocketServer.on('log', self._websocketServerLog.bind(self));
 		self.$websocketServer.on('error', self._websocketServerError.bind(self));
 
-		// Step 4: Log connection / disconnection events
+		// Step 5: Log connection / disconnection events
 		self.$websocketServer.on('connection', self._websocketServerConnection.bind(self));
 		self.$websocketServer.on('disconnection', self._websocketServerDisconnection.bind(self));
 	},
 
 	'_authorizeWebsocketConnection': function(request, done) {
-		request.user ? done() : done({ 'statusCode': 403, 'message': 'Public access not allowed' });
+		done();
 	},
 
 	'_websocketServerInitialised': function(transformer, parser, options) {
 		this.$dependencies.logger.debug('Websocket Server has been initialised with:\nOptions: ', options);
+		this.$dependencies.eventService.emit('websocket-start');
 	},
 
 	'_websocketServerLog': function() {
@@ -102,6 +108,7 @@ var websocketService = prime({
 
 	'_websocketServerError': function() {
 		this.$dependencies.logger.error('Websocket Server Error: ', arguments);
+		this.$dependencies.eventService.emit('websocket-error', arguments);
 	},
 
 	'_websocketServerConnection': function(spark) {
@@ -110,6 +117,7 @@ var websocketService = prime({
 
 	'_websocketServerDisconnection': function(spark) {
 		this.$dependencies.eventService.emit('websocket-disconnect', spark);
+		spark.removeAllListeners();
 	},
 
 	'name': 'websocketService',

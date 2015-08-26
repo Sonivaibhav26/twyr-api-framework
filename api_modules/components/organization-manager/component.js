@@ -20,7 +20,10 @@ var base = require('./../component-base').baseComponent,
 /**
  * Module dependencies, required for this module
  */
-var uuid = require('node-uuid');
+var bcrypt = require('bcrypt-nodejs'),
+	emailExists = promises.promisifyAll(require('email-existence')),
+	path = require('path'),
+	uuid = require('node-uuid');
 
 /**
  * Magic Numbers
@@ -32,6 +35,7 @@ var organizationManagerComponent = prime({
 
 	'constructor': function() {
 		base.call(this);
+		this._loadConfig(path.join(__dirname, 'config.js'));
 	},
 
 	'start': function(dependencies, callback) {
@@ -69,6 +73,10 @@ var organizationManagerComponent = prime({
 
 					'users': function() {
 						return this.hasMany(self.$UserTenantModel, 'tenant_id');
+					},
+
+					'machines': function() {
+						return this.hasMany(self.$TenantMachineModel, 'tenant_id');
 					}
 				})
 			});
@@ -113,6 +121,22 @@ var organizationManagerComponent = prime({
 
 					'group': function() {
 						return this.belongsTo(self.$GroupModel, 'group_id');
+					},
+
+					'user': function() {
+						return this.belongsTo(self.$UserModel, 'user_id');
+					}
+				})
+			});
+
+			Object.defineProperty(self, '$UserTenantMachineModel', {
+				'__proto__': null,
+				'value': database.Model.extend({
+					'tableName': 'user_tenant_machines',
+					'idAttribute': 'id',
+
+					'tenantMachine': function() {
+						return this.belongsTo(self.$TenantMachineModel, 'tenant_machine_id');
 					},
 
 					'user': function() {
@@ -194,6 +218,66 @@ var organizationManagerComponent = prime({
 				'value': database.Model.extend({
 					'tableName': 'components',
 					'idAttribute': 'id'
+				})
+			});
+
+			Object.defineProperty(self, '$TenantMachineModel', {
+				'__proto__': null,
+				'value': database.Model.extend({
+					'tableName': 'tenant_machines',
+					'idAttribute': 'id',
+
+					'machine': function() {
+						return this.belongsTo(self.$MachineModel, 'machine_id');
+					},
+
+					'plc': function() {
+						return this.belongsTo(self.$PLCModel, 'plc_id');
+					},
+
+					'protocol': function() {
+						return this.belongsTo(self.$ProtocolModel, 'protocol_id');
+					},
+
+					'users': function() {
+						return this.hasMany(self.$UserTenantMachineModel, 'tenant_machine_id');
+					}
+				})
+			});
+
+			Object.defineProperty(self, '$MachineModel', {
+				'__proto__': null,
+				'value': database.Model.extend({
+					'tableName': 'machines',
+					'idAttribute': 'id',
+
+					'tenantMachines': function() {
+						return this.hasMany(self.$TenantMachineModel, 'machine_id');
+					}
+				})
+			});
+
+			Object.defineProperty(self, '$PLCModel', {
+				'__proto__': null,
+				'value': database.Model.extend({
+					'tableName': 'plcs',
+					'idAttribute': 'id',
+
+					'tenantMachines': function() {
+						return this.hasMany(self.$TenantMachineModel, 'plc_id');
+					}
+				})
+			});
+
+			Object.defineProperty(self, '$ProtocolModel', {
+				'__proto__': null,
+				'value': database.Model.extend({
+					'tableName': 'protocols',
+					'idAttribute': 'id',
+
+					'tenantMachines': function() {
+						return this.hasMany(self.$TenantMachineModel, 'protocol_id');
+					}
 				})
 			});
 
@@ -346,70 +430,86 @@ var organizationManagerComponent = prime({
 			var tenantId = ((request.query.tenantId != '#') ? request.query.tenantId : request.user.currentTenant.id),
 				groupId =  ((request.query.groupId != '#') ? request.query.groupId : null);
 
-			if(!groupId) {
-				new self.$TenantModel({ 'id': tenantId })
-				.fetch({ 'withRelated': ['groups'] })
-				.then(function(tenant) {
-					tenant = self._camelize(tenant.toJSON());
-	
-					var responseData = [];
-					for(var idx in tenant.groups) {
-						if(tenant.groups[idx].parentId)
-							continue;
-	
-						responseData.push({
-							'id': tenant.groups[idx].id,
-							'text': tenant.groups[idx].displayName,
-							'children' : true
-						});
-					}
-	
-					response.status(200).json(responseData);
-				})
-				.catch(function(err) {
-					self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-					response.status(err.code || err.number || 500).json(err);
-				});
-			}
-			else {
-				new self.$GroupModel({ 'id': groupId })
-				.fetch({ 'withRelated': ['subgroups'] })
-				.then(function(group) {
-					group = self._camelize(group.toJSON());
-	
-					var responseData = [];
-					for(var idx in group.subgroups) {
-						if(group.subgroups[idx].tenantId != group.tenantId)
-							continue;
-	
-						responseData.push({
-							'id': group.subgroups[idx].id,
-							'text': group.subgroups[idx].displayName,
-							'children' : true
-						});
-					}
-	
-					response.status(200).json(responseData);
-				})
-				.catch(function(err) {
-					self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-					response.status(err.code || err.number || 500).json(err);
-				});
-			}
+			self._checkPermissionAsync(request, requiredPermission, tenantId)
+			.then(function(isAllowed) {
+				if(!isAllowed) {
+					throw({ 'code': 403, 'message': 'Unauthorized access!' });
+					return;
+				}
+
+				if(!groupId) {
+					new self.$TenantModel({ 'id': tenantId })
+					.fetch({ 'withRelated': ['groups'] })
+					.then(function(tenant) {
+						tenant = self._camelize(tenant.toJSON());
+
+						var responseData = [];
+						for(var idx in tenant.groups) {
+							if(tenant.groups[idx].parentId)
+								continue;
+
+							responseData.push({
+								'id': tenant.groups[idx].id,
+								'text': tenant.groups[idx].displayName,
+								'children' : true
+							});
+						}
+
+						response.status(200).json(responseData);
+					})
+					.catch(function(err) {
+						self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+						response.status(err.code || err.number || 500).json(err);
+					});
+				}
+				else {
+					new self.$GroupModel({ 'id': groupId })
+					.fetch({ 'withRelated': ['subgroups'] })
+					.then(function(group) {
+						group = self._camelize(group.toJSON());
+
+						var responseData = [];
+						for(var idx in group.subgroups) {
+							if(group.subgroups[idx].tenantId != group.tenantId)
+								continue;
+
+							responseData.push({
+								'id': group.subgroups[idx].id,
+								'text': group.subgroups[idx].displayName,
+								'children' : true
+							});
+						}
+
+						response.status(200).json(responseData);
+					})
+					.catch(function(err) {
+						self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+						response.status(err.code || err.number || 500).json(err);
+					});
+				}
+			})
 		});
 
 		this.$router.post('/organizationManagerOrganizationStructures', function(request, response, next) {
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
-			new self.$TenantModel({
-				'id': request.body.organizationManagerOrganizationStructure.id,
-				'name': request.body.organizationManagerOrganizationStructure.name,
-				'parent_id': request.body.organizationManagerOrganizationStructure.parent,
-				'tenant_type': request.body.organizationManagerOrganizationStructure.tenantType,
-				'created_on': request.body.organizationManagerOrganizationStructure.createdOn
+			self._checkPermissionAsync(request, requiredPermission, request.body.organizationManagerOrganizationStructure.parent)
+			.then(function(isAllowed) {
+				if(!isAllowed) {
+					throw({ 'code': 403, 'message': 'Unauthorized access!' });
+					return;
+				}
+
+				return new self.$TenantModel({
+					'id': request.body.organizationManagerOrganizationStructure.id,
+					'name': request.body.organizationManagerOrganizationStructure.name,
+					'parent_id': request.body.organizationManagerOrganizationStructure.parent,
+					'tenant_type': request.body.organizationManagerOrganizationStructure.tenantType,
+					'created_on': request.body.organizationManagerOrganizationStructure.createdOn
+				})
+				.save(null, { 'method': 'insert' });
 			})
-			.save(null, { 'method': 'insert' })
 			.then(function(savedRecord) {
 				response.status(200).json({
 					'organizationManagerOrganizationStructure': {
@@ -421,7 +521,7 @@ var organizationManagerComponent = prime({
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': {
-						'id': [err.message]
+						'id': [err.detail || err.message]
 					}
 				});
 			});
@@ -433,8 +533,20 @@ var organizationManagerComponent = prime({
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
-			new self.$TenantModel({ 'id': request.params.tenantId })
-			.fetch({ 'withRelated': ['parent', 'suborganizations', 'groups', 'users', 'partners'] })
+			self._checkPermissionAsync(request, requiredPermission, request.params.tenantId)
+			.then(function(isAllowed) {
+				if(!isAllowed) {
+					throw({ 'code': 403, 'message': 'Unauthorized access!' });
+					return;
+				}
+
+				return new self.$TenantModel({
+					'id': request.params.tenantId
+				})
+				.fetch({
+					'withRelated': ['parent', 'suborganizations', 'groups', 'users', 'partners', 'machines']
+				});
+			})
 			.then(function(tenant) {
 				tenant = self._camelize(tenant.toJSON());
 
@@ -459,6 +571,12 @@ var organizationManagerComponent = prime({
 				}
 				tenant.users = users;
 
+				var machines = [];
+				for(var idx in tenant.machines) {
+					machines.push(tenant.machines[idx].id);
+				}
+				tenant.machines = machines;
+
 				response.status(200).json({
 					'organizationManagerOrganizationStructure': tenant
 				});
@@ -467,7 +585,7 @@ var organizationManagerComponent = prime({
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': {
-						'id': [err.message]
+						'id': [err.detail || err.message]
 					}
 				});
 			});
@@ -477,10 +595,23 @@ var organizationManagerComponent = prime({
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
-			new self.$TenantModel({
-				'id': request.params.tenantId
+			self._checkPermissionAsync(request, requiredPermission, request.params.tenantId)
+			.then(function(isAllowed) {
+				if(!isAllowed) {
+					throw({ 'code': 403, 'message': 'Unauthorized access!' });
+					return;
+				}
+
+				return new self.$TenantModel({
+					'id': request.params.tenantId
+				})
+				.save({
+					'name': request.body.organizationManagerOrganizationStructure.name
+				}, {
+					'method': 'update',
+					'patch': true
+				});
 			})
-			.save({ 'name': request.body.organizationManagerOrganizationStructure.name }, { 'method': 'update', 'patch': true })
 			.then(function(savedRecord) {
 				response.status(200).json({
 					'organizationManagerOrganizationStructure': {
@@ -492,7 +623,7 @@ var organizationManagerComponent = prime({
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': {
-						'id': [err.message]
+						'id': [err.detail || err.message]
 					}
 				});
 			});
@@ -502,8 +633,15 @@ var organizationManagerComponent = prime({
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
-			new self.$TenantModel({ 'id': request.params.tenantId })
-			.destroy()
+			self._checkPermissionAsync(request, requiredPermission, request.params.tenantId)
+			.then(function(isAllowed) {
+				if(!isAllowed) {
+					throw({ 'code': 403, 'message': 'Unauthorized access!' });
+					return;
+				}
+
+				return new self.$TenantModel({ 'id': request.params.tenantId }).destroy();
+			})
 			.then(function(savedRecord) {
 				response.status(200).json({});
 			})
@@ -511,7 +649,7 @@ var organizationManagerComponent = prime({
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': {
-						'id': [err.message]
+						'id': [err.detail || err.message]
 					}
 				});
 			});
@@ -521,13 +659,21 @@ var organizationManagerComponent = prime({
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
-			new self.$UserTenantModel({
-				'id': request.body.organizationManagerOrganizationUserTenant.id,
-				'tenant_id': request.body.organizationManagerOrganizationUserTenant.tenant,
-				'user_id': request.body.organizationManagerOrganizationUserTenant.user,
-				'created_on': request.body.organizationManagerOrganizationUserTenant.createdOn
+			self._checkPermissionAsync(request, requiredPermission, request.body.organizationManagerOrganizationUserTenant.id)
+			.then(function(isAllowed) {
+				if(!isAllowed) {
+					throw({ 'code': 403, 'message': 'Unauthorized access!' });
+					return;
+				}
+
+				return new self.$UserTenantModel({
+					'id': request.body.organizationManagerOrganizationUserTenant.id,
+					'tenant_id': request.body.organizationManagerOrganizationUserTenant.tenant,
+					'user_id': request.body.organizationManagerOrganizationUserTenant.user,
+					'created_on': request.body.organizationManagerOrganizationUserTenant.createdOn
+				})
+				.save(null, { 'method': 'insert' });
 			})
-			.save(null, { 'method': 'insert' })
 			.then(function(savedRecord) {
 				response.status(200).json({
 					'organizationManagerOrganizationUserTenant' : {
@@ -539,7 +685,7 @@ var organizationManagerComponent = prime({
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': {
-						'id': [err.message]
+						'id': [err.detail || err.message]
 					}
 				});
 			});
@@ -549,6 +695,7 @@ var organizationManagerComponent = prime({
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
+			var userTenant = null;
 			new self.$UserTenantModel({ 'id': request.params.userTenantId })
 			.fetch({ 'withRelated': [ 'tenant', 'user' ] })
 			.then(function(userTenantRel) {
@@ -560,15 +707,24 @@ var organizationManagerComponent = prime({
 				delete userTenantRel.tenantId;
 				delete userTenantRel.userId;
 
+				userTenant = userTenantRel;
+				return self._checkPermissionAsync(request, requiredPermission, userTenant.tenant);
+			})
+			.then(function(isAllowed) {
+				if(!isAllowed) {
+					throw({ 'code': 403, 'message': 'Unauthorized access!' });
+					return;
+				}
+
 				response.status(200).json({
-					'organizationManagerOrganizationUserTenant': userTenantRel
+					'organizationManagerOrganizationUserTenant': userTenant
 				});
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': {
-						'id': [err.message]
+						'id': [err.detail || err.message]
 					}
 				});
 			});
@@ -587,7 +743,7 @@ var organizationManagerComponent = prime({
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': {
-						'id': [err.message]
+						'id': [err.detail || err.message]
 					}
 				});
 			});
@@ -606,14 +762,16 @@ var organizationManagerComponent = prime({
 			.save(null, { 'method': 'insert' })
 			.then(function(savedRecord) {
 				response.status(200).json({
-					
+					'organizationManagerOrganizationUserGroup': {
+						'id': savedRecord.get('id')
+					}
 				});
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': {
-						'id': [err.message]
+						'id': [err.detail || err.message]
 					}
 				});
 			});
@@ -643,7 +801,7 @@ var organizationManagerComponent = prime({
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': {
-						'id': [err.message]
+						'id': [err.detail || err.message]
 					}
 				});
 			});
@@ -662,7 +820,82 @@ var organizationManagerComponent = prime({
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': {
-						'id': [err.message]
+						'id': [err.detail || err.message]
+					}
+				});
+			});
+		});
+
+		this.$router.post('/organizationManagerOrganizationUsers', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			var newPassword = '';
+
+			new self.$UserModel({ 'email': request.body.organizationManagerOrganizationUser.email })
+			.fetch()
+			.then(function(userRecord) {
+				if(userRecord) {
+					throw({
+						'number': 403,
+						'message': 'Username already exists! Please try with a different email id'
+					});
+				}
+
+				return emailExists.checkAsync(request.body.organizationManagerOrganizationUser.email);
+			})
+			.then(function(emailExists) {
+				if(!emailExists) {
+					throw { 'code': 403, 'message': 'Invalid Email Id (' + request.body.organizationManagerOrganizationUser.email + ')' };
+					return;
+				}
+
+				var randomRequestData = JSON.parse(JSON.stringify(self.$config.randomServer.options));
+				randomRequestData.data.id = uuid.v4().toString().replace(/-/g, '');
+				randomRequestData.data = JSON.stringify(randomRequestData.data);
+
+				return self.$module.$utilities.restCall(self.$config.randomServer.protocol, randomRequestData);
+			})
+			.then(function(randomPassword) {
+				randomPassword = (randomPassword ? JSON.parse(randomPassword) : null);
+				newPassword = (randomPassword ? randomPassword.result.random.data[0] : null);
+
+				var newUser = new self.$UserModel({
+					'id': request.body.organizationManagerOrganizationUser.id,
+					'email': request.body.organizationManagerOrganizationUser.email,
+					'password': bcrypt.hashSync(newPassword),
+					'first_name': request.body.organizationManagerOrganizationUser.firstName,
+					'last_name': request.body.organizationManagerOrganizationUser.lastName,
+					'created_on': request.body.organizationManagerOrganizationUser.createdOn
+				});
+
+				return newUser.save(null, { 'method': 'insert' });
+			})
+			.then(function(savedRecord) {
+				response.status(200).json({
+					'organizationManagerOrganizationUser': {
+						'id': savedRecord.get('id')
+					}
+				});
+			})
+			.then(function() {
+				var notificationOptions = JSON.parse(JSON.stringify(self.$config.notificationServer.options));
+				notificationOptions.path = self.$config.notificationServer.newAccountPath;
+				notificationOptions.data = JSON.stringify({
+					'username': request.body.organizationManagerOrganizationUser.email,
+					'password': newPassword
+				});
+
+				return self.$module.$utilities.restCall(self.$config.notificationServer.protocol, notificationOptions);
+			})
+			.then(function(notificationResponse) {
+				self.$dependencies.logger.debug('Response from Notificaton Server: ', notificationResponse);
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).json({
+					'errors': {
+						'id': [err.detail || err.message]
 					}
 				});
 			});
@@ -678,7 +911,6 @@ var organizationManagerComponent = prime({
 				user = self._camelize(user.toJSON());
 				delete user.password;
 
-				console.log('_camelized User: ', user);
 				var userGroups = [];
 				for(var idx in user.groups) {
 					userGroups.push(user.groups[idx].id);
@@ -693,7 +925,7 @@ var organizationManagerComponent = prime({
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': {
-						'id': [err.message]
+						'id': [err.detail || err.message]
 					}
 				});
 			});
@@ -722,7 +954,7 @@ var organizationManagerComponent = prime({
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': {
-						'id': [err.message]
+						'id': [err.detail || err.message]
 					}
 				});
 			});
@@ -769,7 +1001,7 @@ var organizationManagerComponent = prime({
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': {
-						'id': [err.message]
+						'id': [err.detail || err.message]
 					}
 				});
 			});
@@ -792,7 +1024,7 @@ var organizationManagerComponent = prime({
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': {
-						'id': [err.message]
+						'id': [err.detail || err.message]
 					}
 				});
 			});
@@ -811,7 +1043,7 @@ var organizationManagerComponent = prime({
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': {
-						'id': [err.message]
+						'id': [err.detail || err.message]
 					}
 				});
 			});
@@ -839,7 +1071,7 @@ var organizationManagerComponent = prime({
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': {
-						'id': [err.message]
+						'id': [err.detail || err.message]
 					}
 				});
 			});
@@ -868,7 +1100,7 @@ var organizationManagerComponent = prime({
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': {
-						'id': [err.message]
+						'id': [err.detail || err.message]
 					}
 				});
 			});
@@ -887,7 +1119,7 @@ var organizationManagerComponent = prime({
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': {
-						'id': [err.message]
+						'id': [err.detail || err.message]
 					}
 				});
 			});
@@ -916,7 +1148,176 @@ var organizationManagerComponent = prime({
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': {
-						'id': [err.message]
+						'id': [err.detail || err.message]
+					}
+				});
+			});
+		});
+
+		this.$router.get('/organizationManagerTenantMachines/:tenantMachineId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			new self.$TenantMachineModel({ 'id': request.params.tenantMachineId })
+			.fetch({ 'withRelated': ['machine', 'plc', 'protocol', 'users', 'users.user'] })
+			.then(function(tenantMachine) {
+				tenantMachine = self._camelize(tenantMachine.toJSON());
+
+				var promiseResolutions = [];
+				promiseResolutions.push(self._checkPermissionAsync(request, requiredPermission, tenantMachine.tenantId));
+				promiseResolutions.push(tenantMachine);
+
+				return promises.all(promiseResolutions);
+			})
+			.then(function(results) {
+				var isAllowed = results[0],
+					tenantMachine = results[1];
+
+				if(!isAllowed) {
+					throw({ 'code': 403, 'message': 'Unauthorized access!' });
+					return;
+				}
+
+				var tags = [],
+					computed = [];
+
+				tenantMachine.tags = [];
+				for(var tagIdx in tenantMachine.tagData) {
+					var thisTag = tenantMachine.tagData[tagIdx];
+
+					tenantMachine.tags.push(tenantMachine.id + '-' + tagIdx);
+					tags.push({
+						'id': tenantMachine.id + '-' + tagIdx,
+						'name': thisTag.name,
+						'displayName': thisTag.displayName,
+						'value': 0,
+						'alert': false,
+
+						'machine': tenantMachine.id
+					})
+				}
+
+				tenantMachine.computed = [];
+				for(var compIdx in tenantMachine.tagComputed) {
+					var thisComputed = tenantMachine.tagComputed[compIdx];
+
+					tenantMachine.computed.push(tenantMachine.id + '-' + compIdx);
+					computed.push({
+						'id': tenantMachine.id + '-' + compIdx,
+						'name': thisComputed.name,
+						'displayName': thisComputed.displayName,
+						'value': thisComputed.value,
+
+						'machine': tenantMachine.id
+					})
+				}
+
+				var tenantMachineUsers = tenantMachine.users,
+					users = [];
+
+				tenantMachine.users = [];
+				for(var uidx in tenantMachineUsers) {
+					var thisUser = tenantMachineUsers[uidx];
+					tenantMachine.users.push(thisUser.id);
+
+					thisUser.tenantMachine = thisUser.tenantMachineId;
+					thisUser.user = thisUser.userId;
+
+					delete thisUser.tenantMachineId;
+					delete thisUser.userId;
+
+					users.push(thisUser);
+				}
+
+				var responseData = {};
+
+				responseData['organizationManagerTenantMachine'] = tenantMachine;
+				responseData['organizationManagerMachine'] = [tenantMachine.machine];
+				responseData['organizationManagerPlc'] = [tenantMachine.plc];
+				responseData['organizationManagerProtocol'] = [tenantMachine.protocol];
+				responseData['organizationManagerTenantMachineTag'] = tags;
+				responseData['organizationManagerTenantMachineTagComputed'] = computed;
+				responseData['organizationManagerTenantMachineUser'] = users;
+
+				tenantMachine.machine = tenantMachine.machineId;
+				tenantMachine.plc = tenantMachine.plcId;
+				tenantMachine.protocol = tenantMachine.protocol.id;
+
+				delete tenantMachine.machineId;
+				delete tenantMachine.plcId;
+				delete tenantMachine.protocolId;
+				delete tenantMachine.tagData;
+				delete tenantMachine.tagComputed;
+
+				response.status(200).json(responseData);
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).json({
+					'errors': {
+						'id': [err.detail || err.message]
+					}
+				});
+			});
+		});
+
+		this.$router.delete('/organizationManagerTenantMachines/:tenantMachineId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			new self.$TenantMachineModel({ 'id': request.params.tenantMachineId })
+			.fetch()
+			.then(function(tenantMachine) {
+				tenantMachine = self._camelize(tenantMachine.toJSON());
+				return self._checkPermissionAsync(request, requiredPermission, tenantMachine.tenantId);
+			})
+			.then(function(isAllowed) {
+				if(!isAllowed) {
+					throw({ 'code': 403, 'message': 'Unauthorized access!' });
+					return;
+				}
+
+				return new self.$TenantMachineModel({ 'id': request.params.tenantMachineId }).destroy();
+			})
+			.then(function() {
+				response.status(200).json({});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).json({
+					'errors': {
+						'id': [err.detail || err.message]
+					}
+				});
+			});
+		});
+
+		this.$router.delete('/organizationManagerTenantMachineUsers/:userTenantMachineId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			new self.$UserTenantMachineModel({ 'id': request.params.userTenantMachineId })
+			.fetch({ 'withRelated': ['tenantMachine'] })
+			.then(function(userTenantMachine) {
+				userTenantMachine = self._camelize(userTenantMachine.toJSON());
+				return self._checkPermissionAsync(request, requiredPermission, userTenantMachine.tenantMachine.tenantId);
+			})
+			.then(function(isAllowed) {
+				if(!isAllowed) {
+					throw({ 'code': 403, 'message': 'Unauthorized access!' });
+					return;
+				}
+
+				return new self.$UserTenantMachineModel({ 'id': request.params.userTenantMachineId }).destroy();
+			})
+			.then(function() {
+				response.status(200).json({});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).json({
+					'errors': {
+						'id': [err.detail || err.message]
 					}
 				});
 			});
