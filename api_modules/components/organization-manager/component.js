@@ -1273,6 +1273,56 @@ var organizationManagerComponent = prime({
 			});
 		});
 
+		this.$router.post('/organizationManagerTenantMachines', function(request, response, next) {
+			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			self._checkPermissionAsync(request, requiredPermission, request.body.tenant)
+			.then(function(isAllowed) {
+				if(!isAllowed) {
+					throw({ 'code': 403, 'message': 'Unauthorized access!' });
+					return;
+				}
+
+				return new self.$TenantMachineModel({
+					'id': request.body.organizationManagerTenantMachine.id,
+					'name': request.body.organizationManagerTenantMachine.name,
+					'tenant_id': request.body.organizationManagerTenantMachine.tenant,
+	
+					'machine_id': request.body.organizationManagerTenantMachine.machine,
+					'plc_id': request.body.organizationManagerTenantMachine.plc,
+					'protocol_id': request.body.organizationManagerTenantMachine.protocol,
+	
+					'tag_data': {},
+					'tag_computed': {},
+	
+					'sms_alert': request.body.organizationManagerTenantMachine.smsAlert,
+					'push_alert': request.body.organizationManagerTenantMachine.pushAlert,
+					'email_alert': request.body.organizationManagerTenantMachine.emailAlert,
+					'status_alert': request.body.organizationManagerTenantMachine.statusAlert,
+					'status_alert_period': request.body.organizationManagerTenantMachine.statusAlertPeriod || 0,
+	
+					'created_on': request.body.organizationManagerTenantMachine.createdOn
+				})
+				.save(null, { 'method': 'insert' });
+			})
+			.then(function(savedRecord) {
+				response.status(200).json({
+					'organizationManagerTenantMachine': {
+						'id': savedRecord.get('id')
+					}
+				});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).json({
+					'errors': {
+						'id': [err.detail || err.message]
+					}
+				});
+			});
+		});
+
 		this.$router.get('/organizationManagerTenantMachines/:tenantMachineId', function(request, response, next) {
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
@@ -1391,7 +1441,7 @@ var organizationManagerComponent = prime({
 					'push_alert': request.body.organizationManagerTenantMachine.pushAlert,
 					'email_alert': request.body.organizationManagerTenantMachine.emailAlert,
 					'status_alert': (request.body.organizationManagerTenantMachine.statusAlertPeriod > 0),
-					'status_alert_period': request.body.organizationManagerTenantMachine.statusAlertPeriod
+					'status_alert_period': (request.body.organizationManagerTenantMachine.statusAlertPeriod || 0)
 				}, {
 					'method': 'update',
 					'patch': true
@@ -1513,6 +1563,14 @@ var organizationManagerComponent = prime({
 			});
 		});
 
+		this.$router.post('/organizationManagerTenantMachineTags', function(request, response, next) {
+			response.status(200).json({
+				'organizationManagerTenantMachineTag': {
+					'id': request.body.organizationManagerTenantMachineTag.id
+				}
+			});
+		});
+
 		this.$router.put('/organizationManagerTenantMachineTags', function(request, response, next) {
 			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
@@ -1549,6 +1607,14 @@ var organizationManagerComponent = prime({
 			});
 		});
 
+		this.$router.post('/organizationManagerTenantMachineTagComputeds', function(request, response, next) {
+			response.status(200).json({
+				'organizationManagerTenantMachineTagComputed': {
+					'id': request.body.organizationManagerTenantMachineTagComputed.id
+				}
+			});
+		});
+
 		this.$router.put('/organizationManagerTenantMachineTagComputeds', function(request, response, next) {
 			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
@@ -1581,6 +1647,164 @@ var organizationManagerComponent = prime({
 				response.status(422).json({
 					'status': 'true',
 					'responseText': err.detail || err.message
+				});
+			});
+		});
+
+		this.$router.put('/organizationManagerTenantMachineTags/:tagId', function(request, response, next) {
+			response.status(200).json({
+				'organizationManagerTenantMachineTag': {
+					'id': request.params.tagId
+				}
+			});
+		});
+
+		this.$router.put('/organizationManagerTenantMachineTagComputeds/:tagId', function(request, response, next) {
+			response.status(200).json({
+				'organizationManagerTenantMachineTagComputed': {
+					'id': request.params.tagId
+				}
+			});
+		});
+
+		this.$router.post('/organizationManagerMachines', function(request, response, next) {
+			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			new self.$MachineModel()
+			.query(function(qb) {
+				qb
+				.where({ 'id': request.body.organizationManagerMachine.id })
+				.orWhere(function() {
+					this
+					.where({
+						'manufacturer': request.body.organizationManagerMachine.manufacturer,
+						'model': request.body.organizationManagerMachine.model
+					});
+				});
+			})
+			.fetch()
+			.then(function(machine) {
+				if(machine) {
+					return machine;
+				}
+
+				return new self.$MachineModel({
+					'id': request.body.organizationManagerMachine.id || uuid.v4().toString(),
+					'name': request.body.organizationManagerMachine.name,
+					'manufacturer': request.body.organizationManagerMachine.manufacturer,
+					'category': request.body.organizationManagerMachine.category,
+					'model': request.body.organizationManagerMachine.model,
+					'created_on': request.body.organizationManagerMachine.createdOn
+				})
+				.save(null, { 'method': 'insert' });
+			})
+			.then(function(savedRecord) {
+				request.body.organizationManagerMachine.id = savedRecord.get('id');
+				response.status(200).json({
+					'organizationManagerMachine': self._camelize(savedRecord.toJSON())
+				});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).json({
+					'errors': {
+						'id': [err.detail || err.message]
+					}
+				});
+			});
+		});
+
+		this.$router.post('/organizationManagerPlcs', function(request, response, next) {
+			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			new self.$PLCModel()
+			.query(function(qb) {
+				qb
+				.where({ 'id': request.body.organizationManagerPlc.id })
+				.orWhere(function() {
+					this
+					.where({
+						'manufacturer': request.body.organizationManagerPlc.manufacturer,
+						'model': request.body.organizationManagerPlc.model
+					});
+				})
+			})
+			.fetch()
+			.then(function(plc) {
+				if(plc) {
+					return plc;
+				}
+
+				return new self.$PLCModel({
+					'id': request.body.organizationManagerPlc.id || uuid.v4().toString(),
+					'name': request.body.organizationManagerPlc.name,
+					'manufacturer': request.body.organizationManagerPlc.manufacturer,
+					'category': request.body.organizationManagerPlc.category,
+					'model': request.body.organizationManagerPlc.model,
+					'created_on': request.body.organizationManagerPlc.createdOn
+				})
+				.save(null, { 'method': 'insert' });
+			})
+			.then(function(savedRecord) {
+				request.body.organizationManagerPlc.id = savedRecord.get('id');
+				response.status(200).json({
+					'organizationManagerPlc': self._camelize(savedRecord.toJSON())
+				});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).json({
+					'errors': {
+						'id': [err.detail || err.message]
+					}
+				});
+			});
+		});
+
+		this.$router.post('/organizationManagerProtocols', function(request, response, next) {
+			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			new self.$ProtocolModel()
+			.query(function(qb) {
+				qb
+				.where({ 'id': request.body.organizationManagerProtocol.id })
+				.orWhere(function() {
+					this
+					.where({
+						'name': request.body.organizationManagerProtocol.name,
+						'version': request.body.organizationManagerProtocol.version
+					});
+				});
+			})
+			.fetch()
+			.then(function(protocol) {
+				if(protocol) {
+					return protocol;
+				}
+
+				return new self.$ProtocolModel({
+					'id': request.body.organizationManagerProtocol.id || uuid.v4().toString(),
+					'name': request.body.organizationManagerProtocol.name,
+					'version': request.body.organizationManagerProtocol.version,
+					'created_on': request.body.organizationManagerProtocol.createdOn
+				})
+				.save(null, { 'method': 'insert' });
+			})
+			.then(function(savedRecord) {
+				request.body.organizationManagerProtocol.id = savedRecord.get('id');
+				response.status(200).json({
+					'organizationManagerProtocol': self._camelize(savedRecord.toJSON())
+				});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).json({
+					'errors': {
+						'id': [err.detail || err.message]
+					}
 				});
 			});
 		});

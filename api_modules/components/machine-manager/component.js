@@ -162,7 +162,9 @@ var machineManagerComponent = prime({
 						thisUserTenantMachineData = {
 							'id': thisUserTenantMachine.id,
 							'name': thisUserTenantMachine.tenantMachine.name,
+							
 							'tenantName': thisUserTenantMachine.tenantMachine.tenant.name,
+							'tenantMachineId': thisUserTenantMachine.tenantMachine.id,
 
 							'emberComponent': thisUserTenantMachine.tenantMachine.emberComponent,
 							'emberTemplate': (thisUserTenantMachine.emberTemplate || thisUserTenantMachine.tenantMachine.emberTemplate || 'machine-manager-realtime-data-default-display'),
@@ -242,6 +244,8 @@ var machineManagerComponent = prime({
 
 		switch(data.command) {
 		case 'subscribe':
+			logger.debug('Subscribing to realtime feed for machine: ', data.machineId);
+
 			spark.join(data.machineId + '*');
 			if(websockets.room(data.machineId + '*').clients().length == 1) {
 				pubsub.subscribeConnection.psubscribe(data.machineId + '*');
@@ -266,6 +270,7 @@ var machineManagerComponent = prime({
 			break;
 
 		case 'unsubscribe':
+			logger.debug('Unsubscribing from realtime feed for machine: ', data.machineId);
 			if(websockets.room(data.machineId + '*').clients().length == 1) {
 				pubsub.subscribeConnection.punsubscribe(data.machineId + '*');
 			}
@@ -283,14 +288,13 @@ var machineManagerComponent = prime({
 		// Non-aggregate, real-time data...
 		if(channel.indexOf('!Aggregate!Data') < 0) {
 			machineData = JSON.parse(machineData);
+			console.log('Received Machine Data: ', machineData);
+
 			for(var idx = 0; idx < machineData.length; idx++) {
 				var thisData = machineData[idx];
-				
-				thisData.name = thisData.header;
-				delete thisData.header;
-	
-				thisData.alert = !!parseInt(thisData.alert);
-				streamData.data[thisData.name] = thisData;
+				thisData.value = parseFloat(thisData.value);
+
+				streamData.data[thisData.header] = thisData.value;
 			}
 		}
 		// Aggregate statistical data
