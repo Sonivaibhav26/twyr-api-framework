@@ -165,7 +165,7 @@ var machineManagerComponent = prime({
 							'tenantName': thisUserTenantMachine.tenantMachine.tenant.name,
 
 							'emberComponent': thisUserTenantMachine.tenantMachine.emberComponent,
-							'emberTemplate': 'components/' + (thisUserTenantMachine.emberTemplate || thisUserTenantMachine.tenantMachine.emberTemplate || 'machine-manager-realtime-data-default-display'),
+							'emberTemplate': (thisUserTenantMachine.emberTemplate || thisUserTenantMachine.tenantMachine.emberTemplate || 'machine-manager-realtime-data-default-display'),
 
 							'machineManufacturer': thisUserTenantMachine.tenantMachine.machine.manufacturer,
 							'machineCategory':  thisUserTenantMachine.tenantMachine.machine.category,
@@ -187,30 +187,25 @@ var machineManagerComponent = prime({
 					for(var tagIdx in thisUserTenantMachine.tenantMachine.tagData) {
 						var thisTag = thisUserTenantMachine.tenantMachine.tagData[tagIdx];
 
-						thisUserTenantMachineData.tags.push(thisUserTenantMachine.id + '-' + tagIdx);
-						tagDataResponse.push({
-							'id': thisUserTenantMachine.id + '-' + tagIdx,
-							'name': thisTag.name,
-							'displayName': thisTag.displayName,
-							'value': 0,
-							'alert': false,
+						thisTag.id = thisUserTenantMachine.id + '-' + tagIdx;
+						thisTag.machine = thisUserTenantMachine.id;
+						thisTag.value = 0;
+						thisTag.alert = false;
 
-							'machine': thisUserTenantMachine.id
-						})
+						thisUserTenantMachineData.tags.push(thisUserTenantMachine.id + '-' + tagIdx);
+						tagDataResponse.push(thisTag);
 					}
 
 					for(var compIdx in thisUserTenantMachine.tenantMachine.tagComputed) {
 						var thisComputed = thisUserTenantMachine.tenantMachine.tagComputed[compIdx];
 
-						thisUserTenantMachineData.computed.push(thisUserTenantMachine.id + '-' + compIdx);
-						computedTagDataResponse.push({
-							'id': thisUserTenantMachine.id + '-' + compIdx,
-							'name': thisComputed.name,
-							'displayName': thisComputed.displayName,
-							'value': thisComputed.value,
+						thisComputed.id = thisUserTenantMachine.id + '-' + compIdx;
+						thisComputed.machine = thisUserTenantMachine.id;
+						thisComputed.value = 0;
+						thisComputed.alert = false;
 
-							'machine': thisUserTenantMachine.id
-						})
+						thisUserTenantMachineData.computed.push(thisUserTenantMachine.id + '-' + compIdx);
+						computedTagDataResponse.push(thisComputed);
 					}
 
 					userTenantMachinesResponse.push(thisUserTenantMachineData);

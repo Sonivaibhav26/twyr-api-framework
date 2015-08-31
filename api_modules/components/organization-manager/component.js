@@ -1304,31 +1304,22 @@ var organizationManagerComponent = prime({
 				for(var tagIdx in tenantMachine.tagData) {
 					var thisTag = tenantMachine.tagData[tagIdx];
 
-					tenantMachine.tags.push(tenantMachine.id + '-' + tagIdx);
-					tags.push({
-						'id': tenantMachine.id + '-' + tagIdx,
-						'name': thisTag.name,
-						'displayName': thisTag.displayName,
-						'value': 0,
-						'alert': false,
+					thisTag.id = tenantMachine.id + '-' + tagIdx;
+					thisTag.machine = tenantMachine.id;
 
-						'machine': tenantMachine.id
-					})
+					tenantMachine.tags.push(tenantMachine.id + '-' + tagIdx);
+					tags.push(thisTag);
 				}
 
 				tenantMachine.computed = [];
 				for(var compIdx in tenantMachine.tagComputed) {
 					var thisComputed = tenantMachine.tagComputed[compIdx];
 
-					tenantMachine.computed.push(tenantMachine.id + '-' + compIdx);
-					computed.push({
-						'id': tenantMachine.id + '-' + compIdx,
-						'name': thisComputed.name,
-						'displayName': thisComputed.displayName,
-						'value': thisComputed.value,
+					thisComputed.id = tenantMachine.id + '-' + compIdx;
+					thisComputed.machine = tenantMachine.id;
 
-						'machine': tenantMachine.id
-					})
+					tenantMachine.computed.push(tenantMachine.id + '-' + compIdx);
+					computed.push(thisComputed);
 				}
 
 				var tenantMachineUsers = tenantMachine.users,
@@ -1537,7 +1528,7 @@ var organizationManagerComponent = prime({
 					'id': request.body.machine
 				})
 				.save({
-					'tag_data': JSON.stringify(request.body.tags)
+					'tag_data': JSON.stringify(request.body.tags || {})
 				}, {
 					'method': 'update',
 					'patch': true
@@ -1573,7 +1564,7 @@ var organizationManagerComponent = prime({
 					'id': request.body.machine
 				})
 				.save({
-					'tag_computed': JSON.stringify(request.body.tags)
+					'tag_computed': JSON.stringify(request.body.tags || {})
 				}, {
 					'method': 'update',
 					'patch': true
