@@ -176,8 +176,8 @@ var app = prime({
 				var thisComponent = self.$components[idx],
 					router = thisComponent.getRouter();
 
-				console.log('Loading ' + thisComponent.name + ' @ ' + path.join((self.$config.componentMountPath || ''), thisComponent.name));
-				apiServer.use(path.join((self.$config.componentMountPath || ''), thisComponent.name), router);
+				console.log('Loading ' + thisComponent.name + ' @ ' + path.join((self.$config.componentMountPath || '/'), thisComponent.name));
+				apiServer.use(path.join((self.$config.componentMountPath || '/'), thisComponent.name), router);
 			}
 
 			// Step 3.4: Add in the framework router...

@@ -44,6 +44,10 @@ exports.development = ({
 
 		'resetPasswordPath': '/mailer/resetPassword',
 		'newAccountPath': '/mailer/newAccount'
+	},
+
+	'components': {
+		'path': './sub-components'
 	}
 });
 
@@ -81,6 +85,10 @@ exports.test = ({
 
 		'resetPasswordPath': '/mailer/resetPassword',
 		'newAccountPath': '/mailer/newAccount'
+	},
+
+	'components': {
+		'path': './sub-components'
 	}
 });
 
@@ -118,6 +126,10 @@ exports.stage = ({
 
 		'resetPasswordPath': '/mailer/resetPassword',
 		'newAccountPath': '/mailer/newAccount'
+	},
+
+	'components': {
+		'path': './sub-components'
 	}
 });
 
@@ -155,6 +167,10 @@ exports.production = ({
 
 		'resetPasswordPath': '/mailer/resetPassword',
 		'newAccountPath': '/mailer/newAccount'
+	},
+
+	'components': {
+		'path': './sub-components'
 	}
 });
 

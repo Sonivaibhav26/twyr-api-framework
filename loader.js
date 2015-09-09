@@ -384,6 +384,11 @@ var twyrLoader = prime({
 					currentDependency = null;
 
 				while(!!currentModule && !currentDependency) {
+					if(!currentModule.$services) {
+						currentModule = currentModule.$module;
+						continue;
+					}
+
 					currentDependency = currentModule.$services[thisServiceDependency];
 					if(!currentDependency) currentModule = currentModule.$module;
 				}
@@ -393,7 +398,7 @@ var twyrLoader = prime({
 						'__proto__': null,
 						'configurable': true,
 						'enumerable': true,
-						'get': currentDependency.getInterface.bind(currentDependency)
+						'get': (currentDependency.getInterface ? currentDependency.getInterface.bind(currentDependency) : currentDependency)
 					});
 				}
 			}
@@ -429,16 +434,22 @@ var twyrLoader = prime({
 					currentDependency = null;
 
 				while(!!currentModule && !currentDependency) {
+					if(!currentModule.$services) {
+						currentModule = currentModule.$module;
+						continue;
+					}
+
 					currentDependency = currentModule.$services[thisComponentDependency];
 					if(!currentDependency) currentModule = currentModule.$module;
 				}
 
 				if(currentDependency) {
+					console.log(this.$module.name + ' dependency::' + thisComponentDependency + ': ', currentDependency);
 					Object.defineProperty(thisComponentDependencies, thisComponentDependency, {
 						'__proto__': null,
 						'configurable': true,
 						'enumerable': true,
-						'get': currentDependency.getInterface.bind(currentDependency)
+						'get': (currentDependency.getInterface ? currentDependency.getInterface.bind(currentDependency) : currentDependency)
 					});
 				}
 			}

@@ -63,32 +63,8 @@ var organizationManagerComponent = prime({
 						return this.hasMany(self.$TenantModel, 'parent_id');
 					},
 
-					'partners': function() {
-						return this.hasMany(self.$BusinessPartnerModel, 'tenant_id');
-					},
-
-					'groups': function() {
-						return this.hasMany(self.$GroupModel, 'tenant_id');
-					},
-
 					'users': function() {
 						return this.hasMany(self.$UserTenantModel, 'tenant_id');
-					}
-				})
-			});
-
-			Object.defineProperty(self, '$BusinessPartnerModel', {
-				'__proto__': null,
-				'value': database.Model.extend({
-					'tableName': 'tenant_business_partners',
-					'idAttribute': 'id',
-
-					'tenant': function() {
-						return this.belongsTo(self.$TenantModel, 'tenant_id');
-					},
-
-					'partner': function() {
-						return this.belongsTo(self.$TenantModel, 'partner_id');
 					}
 				})
 			});
@@ -109,22 +85,6 @@ var organizationManagerComponent = prime({
 				})
 			});
 
-			Object.defineProperty(self, '$UserGroupModel', {
-				'__proto__': null,
-				'value': database.Model.extend({
-					'tableName': 'users_groups',
-					'idAttribute': 'id',
-
-					'group': function() {
-						return this.belongsTo(self.$GroupModel, 'group_id');
-					},
-
-					'user': function() {
-						return this.belongsTo(self.$UserModel, 'user_id');
-					}
-				})
-			});
-
 			Object.defineProperty(self, '$UserModel', {
 				'__proto__': null,
 				'value': database.Model.extend({
@@ -133,71 +93,7 @@ var organizationManagerComponent = prime({
 
 					'tenants': function() {
 						return this.hasMany(self.$UserTenantModel, 'user_id');
-					},
-
-					'groups': function() {
-						return this.hasMany(self.$UserGroupModel, 'user_id');
 					}
-				})
-			});
-
-			Object.defineProperty(self, '$GroupModel', {
-				'__proto__': null,
-				'value': database.Model.extend({
-					'tableName': 'groups',
-					'idAttribute': 'id',
-
-					'parent': function() {
-						return this.belongsTo(self.$GroupModel, 'parent_id');
-					},
-
-					'tenant': function() {
-						return this.belongsTo(self.$TenantModel, 'tenant_id');
-					},
-
-					'subgroups': function() {
-						return this.hasMany(self.$GroupModel, 'parent_id');
-					},
-
-					'permissions': function() {
-						return this.hasMany(self.$GroupComponentPermissionModel, 'group_id');
-					}
-				})
-			});
-
-			Object.defineProperty(self, '$GroupComponentPermissionModel', {
-				'__proto__': null,
-				'value': database.Model.extend({
-					'tableName': 'group_component_permissions',
-					'idAttribute': 'id',
-
-					'group': function() {
-						return this.belongsTo(self.$GroupModel, 'group_id');
-					},
-
-					'permission': function() {
-						return this.belongsTo(self.$ComponentPermissionModel, 'component_permission_id');
-					}
-				})
-			});
-
-			Object.defineProperty(self, '$ComponentPermissionModel', {
-				'__proto__': null,
-				'value': database.Model.extend({
-					'tableName': 'component_permissions',
-					'idAttribute': 'id',
-
-					'component': function() {
-						return this.belongsTo(self.$ComponentModel, 'component_id');
-					}
-				})
-			});
-
-			Object.defineProperty(self, '$ComponentModel', {
-				'__proto__': null,
-				'value': database.Model.extend({
-					'tableName': 'components',
-					'idAttribute': 'id'
 				})
 			});
 
@@ -212,18 +108,6 @@ var organizationManagerComponent = prime({
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
-			var tenantId = request.query.id,
-				actualTenantId = '',
-				subTree = '';
-
-			if(tenantId.indexOf('--') < 0) {
-				actualTenantId = tenantId;
-			}
-			else {
-				actualTenantId = tenantId.substring(0, tenantId.indexOf('--'));
-				subTree = tenantId.substring(2 + tenantId.indexOf('--'));
-			}
-
 			new self.$UserTenantModel()
 			.query('where', 'user_id', '=', request.user.id)
 			.fetchAll()
@@ -232,13 +116,13 @@ var organizationManagerComponent = prime({
 
 				var promiseResolutions = [];
 
-				if(actualTenantId == '#') {
+				if(request.query.id == '#') {
 					for(var idx in userTenants) {
 						promiseResolutions.push(self._checkPermissionAsync(request, requiredPermission, userTenants[idx].tenantId));
 					}
 				}
 				else {
-					promiseResolutions.push(self._checkPermissionAsync(request, requiredPermission, actualTenantId));
+					promiseResolutions.push(self._checkPermissionAsync(request, requiredPermission, request.query.id));
 				}
 
 				promiseResolutions.push(userTenants);
@@ -248,20 +132,17 @@ var organizationManagerComponent = prime({
 				var promiseResolutions = [],
 					userTenants = authorizations.pop();
 
-				if(actualTenantId == '#') {
+				if(request.query.id == '#') {
 					for(var idx in userTenants) {
 						if(!authorizations[idx])
 							continue;
 
-						promiseResolutions.push(new self.$TenantModel({ 'id': userTenants[idx].tenantId }).fetch());
+						promiseResolutions.push(new self.$TenantModel({ 'id': userTenants[idx].tenantId }).fetch({ 'withRelated': ['suborganizations'] }));
 					}
 				}
 				else {
 					if(authorizations[0]) {
-						if(subTree !== '')
-							promiseResolutions.push(new self.$TenantModel({ 'id': actualTenantId }).fetch({ 'withRelated': ['suborganizations'] }));
-						else
-							promiseResolutions.push(new self.$TenantModel({ 'id': actualTenantId }).fetch());
+						promiseResolutions.push(new self.$TenantModel({ 'id': request.query.id }).fetch({ 'withRelated': ['suborganizations'] }));
 					}
 				}
 
@@ -274,66 +155,25 @@ var organizationManagerComponent = prime({
 					return;
 				}
 
-				switch(subTree) {
-					case 'subsidiaries':
-						var tenant = self._camelize((tenants[0]).toJSON());
-						for(var idx in tenant.suborganizations) {
-							if(tenant.suborganizations[idx].tenantType != 'Organization')
-								continue;
+				for(var idx in tenants) {
+					var tenant = self._camelize((tenants[idx]).toJSON()),
+						tenantTree = {
+							'id': tenant.id,
+							'text': tenant.name,
+							'children': []
+						};
 
-							responseData.push({
-								'id': tenant.suborganizations[idx].id,
-								'text': tenant.suborganizations[idx].name,
-								'children' : [{
-									'id': tenant.suborganizations[idx].id + '--subsidiaries',
-									'text': '<i>Subsidiaries</i>',
-									'children': true
-								}, {
-									'id': tenant.suborganizations[idx].id + '--departments',
-									'text': '<i>Departments</i>',
-									'children': true
-								}]
-							});
-						}
-						break;
+					for(var subIdx in tenant.suborganizations) {
+						var thisSubOrg = tenant.suborganizations[subIdx];
+						tenantTree.children.push({
+							'id': thisSubOrg.id,
+							'text': thisSubOrg.name,
+							'children': true
+						});
+					}
 
-					case 'departments':
-						var tenant = self._camelize((tenants[0]).toJSON());
-						for(var idx in tenant.suborganizations) {
-							if(tenant.suborganizations[idx].tenantType != 'Department')
-								continue;
-
-							responseData.push({
-								'id': tenant.suborganizations[idx].id,
-								'text': tenant.suborganizations[idx].name,
-								'children' : [{
-									'id': tenant.suborganizations[idx].id + '--departments',
-									'text': '<i>Departments</i>',
-									'children': true
-								}]
-							});
-						}
-						break;
-
-					default:
-						for(var idx in tenants) {
-							var tenant = self._camelize((tenants[idx]).toJSON());
-							responseData.push({
-								'id': tenant.id,
-								'text': tenant.name,
-								'children': [{
-									'id': tenant.id + '--subsidiaries',
-									'text': '<i>Subsidiaries</i>',
-									'children': true
-								}, {
-									'id': tenant.id + '--departments',
-									'text': '<i>Departments</i>',
-									'children': true
-								}]
-							});
-						}
-						break;
-				};
+					responseData.push(tenantTree);
+				}
 
 				response.status(200).json(responseData);
 			})
@@ -343,96 +183,30 @@ var organizationManagerComponent = prime({
 			});
 		});
 
-		this.$router.get('/organizationStructureGroupsTree', function(request, response, next) {
+		this.$router.post('/organizationManagers', function(request, response, next) {
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
-			var tenantId = ((request.query.tenantId != '#') ? request.query.tenantId : request.user.currentTenant.id),
-				groupId =  ((request.query.groupId != '#') ? request.query.groupId : null);
-
-			self._checkPermissionAsync(request, requiredPermission, tenantId)
+			self._checkPermissionAsync(request, requiredPermission, request.body.organizationManager.parent)
 			.then(function(isAllowed) {
 				if(!isAllowed) {
 					throw({ 'code': 403, 'message': 'Unauthorized access!' });
 					return;
 				}
 
-				if(!groupId) {
-					new self.$TenantModel({ 'id': tenantId })
-					.fetch({ 'withRelated': ['groups'] })
-					.then(function(tenant) {
-						tenant = self._camelize(tenant.toJSON());
+				var newOrganization = new self.$TenantModel({
+					'id': request.body.organizationManager.id,
+					'name': request.body.organizationManager.name,
+					'parent_id': request.body.organizationManager.parent,
+					'tenant_type': request.body.organizationManager.tenantType,
+					'created_on': request.body.organizationManager.createdOn
+				});
 
-						var responseData = [];
-						for(var idx in tenant.groups) {
-							if(tenant.groups[idx].parentId)
-								continue;
-
-							responseData.push({
-								'id': tenant.groups[idx].id,
-								'text': tenant.groups[idx].displayName,
-								'children' : true
-							});
-						}
-
-						response.status(200).json(responseData);
-					})
-					.catch(function(err) {
-						self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-						response.status(err.code || err.number || 500).json(err);
-					});
-				}
-				else {
-					new self.$GroupModel({ 'id': groupId })
-					.fetch({ 'withRelated': ['subgroups'] })
-					.then(function(group) {
-						group = self._camelize(group.toJSON());
-
-						var responseData = [];
-						for(var idx in group.subgroups) {
-							if(group.subgroups[idx].tenantId != group.tenantId)
-								continue;
-
-							responseData.push({
-								'id': group.subgroups[idx].id,
-								'text': group.subgroups[idx].displayName,
-								'children' : true
-							});
-						}
-
-						response.status(200).json(responseData);
-					})
-					.catch(function(err) {
-						self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-						response.status(err.code || err.number || 500).json(err);
-					});
-				}
-			})
-		});
-
-		this.$router.post('/organizationManagerOrganizationStructures', function(request, response, next) {
-			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
-			response.type('application/json');
-
-			self._checkPermissionAsync(request, requiredPermission, request.body.organizationManagerOrganizationStructure.parent)
-			.then(function(isAllowed) {
-				if(!isAllowed) {
-					throw({ 'code': 403, 'message': 'Unauthorized access!' });
-					return;
-				}
-
-				return new self.$TenantModel({
-					'id': request.body.organizationManagerOrganizationStructure.id,
-					'name': request.body.organizationManagerOrganizationStructure.name,
-					'parent_id': request.body.organizationManagerOrganizationStructure.parent,
-					'tenant_type': request.body.organizationManagerOrganizationStructure.tenantType,
-					'created_on': request.body.organizationManagerOrganizationStructure.createdOn
-				})
-				.save(null, { 'method': 'insert' });
+				return newOrganization.save(null, { 'method': 'insert' });
 			})
 			.then(function(savedRecord) {
 				response.status(200).json({
-					'organizationManagerOrganizationStructure': {
+					'organizationManager': {
 						'id': savedRecord.get('id')
 					}
 				});
@@ -445,11 +219,9 @@ var organizationManagerComponent = prime({
 					}
 				});
 			});
-
 		});
 
-
-		this.$router.get('/organizationManagerOrganizationStructures/:tenantId', function(request, response, next) {
+		this.$router.get('/organizationManagers/:tenantId', function(request, response, next) {
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
@@ -464,13 +236,28 @@ var organizationManagerComponent = prime({
 					'id': request.params.tenantId
 				})
 				.fetch({
-					'withRelated': ['parent', 'suborganizations', 'groups', 'users', 'partners']
+					'withRelated': ['suborganizations', 'users']
 				});
 			})
 			.then(function(tenant) {
 				tenant = self._camelize(tenant.toJSON());
 
-				tenant.parent = (tenant.parent ? ((tenant.id != request.user.currentTenant.id) ? tenant.parent.id : null) : null);
+				var promiseResolutions = [];
+				if(tenant.parentId) {
+					promiseResolutions.push(self._checkPermissionAsync(request, requiredPermission, tenant.parentId));
+				}
+				else {
+					promiseResolutions.push(false);
+				}
+
+				promiseResolutions.push(tenant);
+				return promises.all(promiseResolutions);
+			})
+			.then(function(results) {
+				var parentPermission = results[0],
+					tenant = results[1];
+
+				tenant.parent = (parentPermission ? tenant.parentId : null);
 				delete tenant.parentId;
 
 				var suborganizations = [];
@@ -479,12 +266,6 @@ var organizationManagerComponent = prime({
 				}
 				tenant.suborganizations = suborganizations;
 
-				var groups = [];
-				for(var idx in tenant.groups) {
-					groups.push(tenant.groups[idx].id);
-				}
-				tenant.groups = groups;
-
 				var users = [];
 				for(var idx in tenant.users) {
 					users.push(tenant.users[idx].id);
@@ -492,7 +273,7 @@ var organizationManagerComponent = prime({
 				tenant.users = users;
 
 				response.status(200).json({
-					'organizationManagerOrganizationStructure': tenant
+					'organizationManager': tenant
 				});
 			})
 			.catch(function(err) {
@@ -505,7 +286,7 @@ var organizationManagerComponent = prime({
 			});
 		});
 
-		this.$router.put('/organizationManagerOrganizationStructures/:tenantId', function(request, response, next) {
+		this.$router.put('/organizationManagers/:tenantId', function(request, response, next) {
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
@@ -520,7 +301,7 @@ var organizationManagerComponent = prime({
 					'id': request.params.tenantId
 				})
 				.save({
-					'name': request.body.organizationManagerOrganizationStructure.name
+					'name': request.body.organizationManager.name
 				}, {
 					'method': 'update',
 					'patch': true
@@ -528,7 +309,7 @@ var organizationManagerComponent = prime({
 			})
 			.then(function(savedRecord) {
 				response.status(200).json({
-					'organizationManagerOrganizationStructure': {
+					'organizationManager': {
 						'id': savedRecord.get('id')
 					}
 				});
@@ -543,7 +324,7 @@ var organizationManagerComponent = prime({
 			});
 		});
 
-		this.$router.delete('/organizationManagerOrganizationStructures/:tenantId', function(request, response, next) {
+		this.$router.delete('/organizationManagers/:tenantId', function(request, response, next) {
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
@@ -569,28 +350,22 @@ var organizationManagerComponent = prime({
 			});
 		});
 
-		this.$router.post('/organizationManagerOrganizationUserTenants', function(request, response, next) {
+		this.$router.post('/organizationManagerTenantUsers', function(request, response, next) {
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
-			self._checkPermissionAsync(request, requiredPermission, request.body.organizationManagerOrganizationUserTenant.tenant)
-			.then(function(isAllowed) {
-				if(!isAllowed) {
-					throw({ 'code': 403, 'message': 'Unauthorized access!' });
-					return;
-				}
-
-				return new self.$UserTenantModel({
-					'id': request.body.organizationManagerOrganizationUserTenant.id,
-					'tenant_id': request.body.organizationManagerOrganizationUserTenant.tenant,
-					'user_id': request.body.organizationManagerOrganizationUserTenant.user,
-					'created_on': request.body.organizationManagerOrganizationUserTenant.createdOn
-				})
-				.save(null, { 'method': 'insert' });
+			new self.$UserTenantModel()
+			.save({
+				'id': request.body.organizationManagerTenantUser.id,
+				'tenant_id': request.body.organizationManagerTenantUser.tenant,
+				'user_id': request.body.organizationManagerTenantUser.user,
+				'created_on': request.body.organizationManagerTenantUser.createdOn
+			}, {
+				'method': 'insert'
 			})
 			.then(function(savedRecord) {
 				response.status(200).json({
-					'organizationManagerOrganizationUserTenant' : {
+					'organizationManagerTenantUser': {
 						'id': savedRecord.get('id')
 					}
 				});
@@ -605,102 +380,19 @@ var organizationManagerComponent = prime({
 			});
 		});
 
-		this.$router.get('/organizationManagerOrganizationUserTenants/:userTenantId', function(request, response, next) {
-			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
-			response.type('application/json');
-
-			var userTenant = null;
-			new self.$UserTenantModel({ 'id': request.params.userTenantId })
-			.fetch({ 'withRelated': [ 'tenant', 'user' ] })
-			.then(function(userTenantRel) {
-				userTenantRel = self._camelize(userTenantRel.toJSON());
-
-				userTenantRel.tenant = userTenantRel.tenantId;
-				userTenantRel.user = userTenantRel.userId;
-
-				delete userTenantRel.tenantId;
-				delete userTenantRel.userId;
-
-				userTenant = userTenantRel;
-				return self._checkPermissionAsync(request, requiredPermission, userTenant.tenant);
-			})
-			.then(function(isAllowed) {
-				if(!isAllowed) {
-					throw({ 'code': 403, 'message': 'Unauthorized access!' });
-					return;
-				}
-
-				response.status(200).json({
-					'organizationManagerOrganizationUserTenant': userTenant
-				});
-			})
-			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-				response.status(422).json({
-					'errors': {
-						'id': [err.detail || err.message]
-					}
-				});
-			});
-		});
-
-		this.$router.delete('/organizationManagerOrganizationUserTenants/:userTenantId', function(request, response, next) {
+		this.$router.get('/organizationManagerTenantUsers/:userTenantId', function(request, response, next) {
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
 			new self.$UserTenantModel({ 'id': request.params.userTenantId })
 			.fetch()
-			.then(function(userTenant) {
-				return self._checkPermissionAsync(request, requiredPermission, userTenant.get('tenant_id'));
-			})
-			.then(function(isAllowed) {
-				if(!isAllowed) {
-					throw({ 'code': 403, 'message': 'Unauthorized access!' });
-					return;
-				}
-
-				return new self.$UserTenantModel({ 'id': request.params.userTenantId }).destroy();
-			})
-			.then(function() {
-				response.status(200).json({});
-			})
-			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-				response.status(422).json({
-					'errors': {
-						'id': [err.detail || err.message]
-					}
-				});
-			});
-		});
-
-		this.$router.post('/organizationManagerOrganizationUserGroups', function(request, response, next) {
-			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
-			response.type('application/json');
-
-			new self.$GroupModel({ 'id': request.body.organizationManagerOrganizationUserGroup.group })
-			.fetch()
-			.then(function(group) {
-				return self._checkPermissionAsync(request, requiredPermission, group.get('tenant_id'));
-			})
-			.then(function(isAllowed) {
-				if(!isAllowed) {
-					throw({ 'code': 403, 'message': 'Unauthorized access!' });
-					return;
-				}
-
-				return new self.$UserGroupModel({
-					'id': request.body.organizationManagerOrganizationUserGroup.id,
-					'user_id': request.body.organizationManagerOrganizationUserGroup.user,
-					'group_id': request.body.organizationManagerOrganizationUserGroup.group,
-					'created_on': request.body.organizationManagerOrganizationUserGroup.createdOn
-				})
-				.save(null, { 'method': 'insert' });
-			})
-			.then(function(savedRecord) {
+			.then(function(userTenantRecord) {
 				response.status(200).json({
-					'organizationManagerOrganizationUserGroup': {
-						'id': savedRecord.get('id')
+					'organizationManagerTenantUser': {
+						'id': userTenantRecord.get('id'),
+						'tenant': userTenantRecord.get('tenant_id'),
+						'user': userTenantRecord.get('user_id'),
+						'createdOn': userTenantRecord.get('created_on')
 					}
 				});
 			})
@@ -714,467 +406,22 @@ var organizationManagerComponent = prime({
 			});
 		});
 
-		this.$router.get('/organizationManagerOrganizationUserGroups/:userGroupId', function(request, response, next) {
-			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
-			response.type('application/json');
-
-			var userGroup = null;
-
-			new self.$UserGroupModel({ 'id': request.params.userGroupId })
-			.fetch({ 'withRelated': ['group'] })
-			.then(function(record) {
-				userGroup = self._camelize(record.toJSON());
-				return self._checkPermissionAsync(request, requiredPermission, userGroup.group.tenantId);
-			})
-			.then(function(isAllowed) {
-				if(!isAllowed) {
-					throw({ 'code': 403, 'message': 'Unauthorized access!' });
-					return;
-				}
-
-				response.status(200).json({
-					'organizationManagerOrganizationUserGroup': {
-						'id': userGroup.id,
-						'tenant': userGroup.group.tenantId,
-						'user': userGroup.userId,
-						'group': userGroup.groupId,
-						'createdOn': userGroup.createdOn
-					}
-				});
-			})
-			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-				response.status(422).json({
-					'errors': {
-						'id': [err.detail || err.message]
-					}
-				});
-			});
-		});
-
-		this.$router.delete('/organizationManagerOrganizationUserGroups/:userGroupId', function(request, response, next) {
-			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
-			response.type('application/json');
-
-			new self.$UserGroupModel({ 'id': request.params.userGroupId })
-			.fetch({ 'withRelated': ['group'] })
-			.then(function(userGroup) {
-				userGroup = self._camelize(userGroup.toJSON());
-				return self._checkPermissionAsync(request, requiredPermission, userGroup.group.tenantId);
-			})
-			.then(function(isAllowed) {
-				if(!isAllowed) {
-					throw({ 'code': 403, 'message': 'Unauthorized access!' });
-					return;
-				}
-
-				return new self.$UserGroupModel({ 'id': request.params.userGroupId }).destroy();
-			})
-			.then(function(userGroup) {
-				response.status(200).json({});
-			})
-			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-				response.status(422).json({
-					'errors': {
-						'id': [err.detail || err.message]
-					}
-				});
-			});
-		});
-
-		this.$router.post('/organizationManagerOrganizationUsers', function(request, response, next) {
-			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
-			response.type('application/json');
-
-			var newPassword = '';
-
-			new self.$UserModel({ 'email': request.body.organizationManagerOrganizationUser.email })
-			.fetch()
-			.then(function(userRecord) {
-				if(userRecord) {
-					throw({
-						'number': 403,
-						'message': 'Username already exists! Please try with a different email id'
-					});
-				}
-
-				return emailExists.checkAsync(request.body.organizationManagerOrganizationUser.email);
-			})
-			.then(function(emailExists) {
-				if(!emailExists) {
-					throw { 'code': 403, 'message': 'Invalid Email Id (' + request.body.organizationManagerOrganizationUser.email + ')' };
-					return;
-				}
-
-				var randomRequestData = JSON.parse(JSON.stringify(self.$config.randomServer.options));
-				randomRequestData.data.id = uuid.v4().toString().replace(/-/g, '');
-				randomRequestData.data = JSON.stringify(randomRequestData.data);
-
-				return self.$module.$utilities.restCall(self.$config.randomServer.protocol, randomRequestData);
-			})
-			.then(function(randomPassword) {
-				randomPassword = (randomPassword ? JSON.parse(randomPassword) : null);
-				newPassword = (randomPassword ? randomPassword.result.random.data[0] : null);
-
-				var newUser = new self.$UserModel({
-					'id': request.body.organizationManagerOrganizationUser.id,
-					'email': request.body.organizationManagerOrganizationUser.email,
-					'password': bcrypt.hashSync(newPassword),
-					'first_name': request.body.organizationManagerOrganizationUser.firstName,
-					'last_name': request.body.organizationManagerOrganizationUser.lastName,
-					'created_on': request.body.organizationManagerOrganizationUser.createdOn
-				});
-
-				return newUser.save(null, { 'method': 'insert' });
-			})
-			.then(function(savedRecord) {
-				response.status(200).json({
-					'organizationManagerOrganizationUser': {
-						'id': savedRecord.get('id')
-					}
-				});
-			})
-			.then(function() {
-				var notificationOptions = JSON.parse(JSON.stringify(self.$config.notificationServer.options));
-				notificationOptions.path = self.$config.notificationServer.newAccountPath;
-				notificationOptions.data = JSON.stringify({
-					'username': request.body.organizationManagerOrganizationUser.email,
-					'password': newPassword
-				});
-
-				return self.$module.$utilities.restCall(self.$config.notificationServer.protocol, notificationOptions);
-			})
-			.then(function(notificationResponse) {
-				self.$dependencies.logger.debug('Response from Notificaton Server: ', notificationResponse);
-			})
-			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-				response.status(422).json({
-					'errors': {
-						'id': [err.detail || err.message]
-					}
-				});
-			});
-		});
-
-		this.$router.get('/organizationManagerOrganizationUsers/:userId', function(request, response, next) {
+		this.$router.get('/organizationManagerUsers/:userId', function(request, response, next) {
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
 			new self.$UserModel({ 'id': request.params.userId })
-			.fetch({ 'withRelated': ['groups'] })
-			.then(function(user) {
-				user = self._camelize(user.toJSON());
-				delete user.password;
-
-				var userGroups = [];
-				for(var idx in user.groups) {
-					userGroups.push(user.groups[idx].id);
-				}
-				user.groups = userGroups;
-
-				response.status(200).json({
-					'organizationManagerOrganizationUser': user
-				});
-			})
-			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-				response.status(422).json({
-					'errors': {
-						'id': [err.detail || err.message]
-					}
-				});
-			});
-		});
-
-		this.$router.post('/organizationManagerOrganizationGroups', function(request, response, next) {
-			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
-			response.type('application/json');
-
-			self._checkPermissionAsync(request, requiredPermission, request.body.organizationManagerOrganizationGroup.tenant)
-			.then(function(isAllowed) {
-				if(!isAllowed) {
-					throw({ 'code': 403, 'message': 'Unauthorized access!' });
-					return;
-				}
-
-				return new self.$GroupModel({
-					'id': request.body.organizationManagerOrganizationGroup.id,
-					'display_name': request.body.organizationManagerOrganizationGroup.displayName,
-					'parent_id': request.body.organizationManagerOrganizationGroup.parent,
-					'tenant_id': request.body.organizationManagerOrganizationGroup.tenant,
-					'created_on': request.body.organizationManagerOrganizationGroup.createdOn
-				})
-				.save(null, { 'method': 'insert' });
-			})
-			.then(function(savedRecord) {
-				response.status(200).json({
-					'organizationManagerOrganizationGroup': {
-						'id': savedRecord.get('id')
-					}
-				});
-			})
-			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-				response.status(422).json({
-					'errors': {
-						'id': [err.detail || err.message]
-					}
-				});
-			});
-		});
-
-		this.$router.get('/organizationManagerOrganizationGroups/:groupId', function(request, response, next) {
-			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
-			response.type('application/json');
-
-			var group = null;
-
-			new self.$GroupModel({ 'id': request.params.groupId })
-			.fetch({ 'withRelated': ['subgroups', 'permissions'] })
-			.then(function(record) {
-				group = self._camelize(record.toJSON());
-				return self._checkPermissionAsync(request, requiredPermission, group.tenantId);
-			})
-			.then(function(isAllowed) {
-				if(!isAllowed) {
-					throw({ 'code': 403, 'message': 'Unauthorized access!' });
-					return;
-				}
-
-				var subGroups = [];
-				for(var idx in group.subgroups) {
-					if(group.subgroups[idx].tenantId != group.tenantId)
-						continue;
-
-					subGroups.push(group.subgroups[idx].id);
-				}
-
-				var permissions = [];
-				for(var idx in group.permissions) {
-					permissions.push(group.permissions[idx].id);
-				}
-
-				group.parent = group.parentId;
-				group.tenant = group.tenantId;
-
-				group.subgroups = subGroups;
-				group.permissions = permissions;
-
-				delete group.canBeParent;
-				delete group.visibleToSubTenants;
-				delete group.parentId;
-				delete group.tenantId;
-
-				response.status(200).json({
-					'organizationManagerOrganizationGroup': group
-				});
-			})
-			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-				response.status(422).json({
-					'errors': {
-						'id': [err.detail || err.message]
-					}
-				});
-			});
-		});
-
-		this.$router.put('/organizationManagerOrganizationGroups/:groupId', function(request, response, next) {
-			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
-			response.type('application/json');
-
-			new self.$GroupModel({ 'id': request.params.groupId })
 			.fetch()
-			.then(function(group) {
-				group = self._camelize(group.toJSON());
-				return self._checkPermissionAsync(request, requiredPermission, group.tenantId);
-			})
-			.then(function(isAllowed) {
-				if(!isAllowed) {
-					throw({ 'code': 403, 'message': 'Unauthorized access!' });
-					return;
-				}
-
-				return new self.$GroupModel({ 'id': request.params.groupId })
-				.save({ 'display_name': request.body.organizationManagerOrganizationGroup.displayName }, { 'method': 'update', 'patch': true });
-			})
-			.then(function(savedRecord) {
+			.then(function(userRecord) {
 				response.status(200).json({
-					'organizationManagerOrganizationGroup': {
-						'id': savedRecord.get('id')
+					'organizationManagerUser': {
+						'id': userRecord.get('id'),
+						'firstName': userRecord.get('first_name'),
+						'middleNames': userRecord.get('middle_names'),
+						'lastName': userRecord.get('last_name'),
+						'login': userRecord.get('email'),
+						'createdOn': userRecord.get('created_on')
 					}
-				});
-			})
-			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-				response.status(422).json({
-					'errors': {
-						'id': [err.detail || err.message]
-					}
-				});
-			});
-		});
-
-		this.$router.delete('/organizationManagerOrganizationGroups/:groupId', function(request, response, next) {
-			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
-			response.type('application/json');
-
-			new self.$GroupModel({ 'id': request.params.groupId })
-			.fetch()
-			.then(function(group) {
-				group = self._camelize(group.toJSON());
-				return self._checkPermissionAsync(request, requiredPermission, group.tenantId);
-			})
-			.then(function(isAllowed) {
-				if(!isAllowed) {
-					throw({ 'code': 403, 'message': 'Unauthorized access!' });
-					return;
-				}
-
-				return new self.$GroupModel({ 'id': request.params.groupId }).destroy();
-			})
-			.then(function() {
-				response.status(200).json({});
-			})
-			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-				response.status(422).json({
-					'errors': {
-						'id': [err.detail || err.message]
-					}
-				});
-			});
-		});
-
-		this.$router.post('/organizationManagerOrganizationGroupPermissions', function(request, response, next) {
-			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
-			response.type('application/json');
-
-			new self.$GroupModel({ 'id': request.body.organizationManagerOrganizationGroupPermission.group })
-			.fetch()
-			.then(function(group) {
-				group = self._camelize(group.toJSON());
-				return self._checkPermissionAsync(request, requiredPermission, group.tenantId);
-			})
-			.then(function(isAllowed) {
-				if(!isAllowed) {
-					throw({ 'code': 403, 'message': 'Unauthorized access!' });
-					return;
-				}
-
-				return new self.$GroupComponentPermissionModel({
-					'id': request.body.organizationManagerOrganizationGroupPermission.id,
-					'group_id': request.body.organizationManagerOrganizationGroupPermission.group,
-					'component_permission_id': request.body.organizationManagerOrganizationGroupPermission.permission,
-					'created_on': request.body.organizationManagerOrganizationGroupPermission.createdOn
-				})
-				.save(null, { 'method': 'insert' });
-			})
-			.then(function(savedRecord) {
-				response.status(200).json({
-					'organizationManagerOrganizationGroupPermission': {
-						'id': savedRecord.get('id')
-					}
-				});
-			})
-			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-				response.status(422).json({
-					'errors': {
-						'id': [err.detail || err.message]
-					}
-				});
-			});
-		});
-
-		this.$router.get('/organizationManagerOrganizationGroupPermissions/:groupPermissionId', function(request, response, next) {
-			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
-			response.type('application/json');
-
-			var groupPermission = null;
-
-			new self.$GroupComponentPermissionModel({ 'id': request.params.groupPermissionId })
-			.fetch({ 'withRelated': ['group'] })
-			.then(function(record) {
-				groupPermission = self._camelize(record.toJSON());
-				return self._checkPermissionAsync(request, requiredPermission, groupPermission.group.tenantId);
-			})
-			.then(function(isAllowed) {
-				if(!isAllowed) {
-					throw({ 'code': 403, 'message': 'Unauthorized access!' });
-					return;
-				}
-
-				groupPermission.group = groupPermission.groupId;
-				groupPermission.permission = groupPermission.componentPermissionId;
-				
-				delete groupPermission.groupId;
-				delete groupPermission.componentPermissionId;
-
-				response.status(200).json({
-					'organizationManagerOrganizationGroupPermission': groupPermission
-				});
-			})
-			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-				response.status(422).json({
-					'errors': {
-						'id': [err.detail || err.message]
-					}
-				});
-			});
-		});
-
-		this.$router.delete('/organizationManagerOrganizationGroupPermissions/:groupPermissionId', function(request, response, next) {
-			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
-			response.type('application/json');
-
-			new self.$GroupComponentPermissionModel({ 'id': request.params.groupPermissionId })
-			.fetch({ 'withRelated': ['group'] })
-			.then(function(record) {
-				groupPermission = self._camelize(record.toJSON());
-				return self._checkPermissionAsync(request, requiredPermission, groupPermission.group.tenantId);
-			})
-			.then(function(isAllowed) {
-				if(!isAllowed) {
-					throw({ 'code': 403, 'message': 'Unauthorized access!' });
-					return;
-				}
-
-				return new self.$GroupComponentPermissionModel({ 'id': request.params.groupPermissionId }).destroy();
-			})
-			.then(function() {
-				response.status(200).json({});
-			})
-			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-				response.status(422).json({
-					'errors': {
-						'id': [err.detail || err.message]
-					}
-				});
-			});
-		});
-
-		this.$router.get('/organizationManagerComponentPermissions/:componentPermissionId', function(request, response, next) {
-			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
-			response.type('application/json');
-
-			new self.$ComponentPermissionModel({ 'id': request.params.componentPermissionId })
-			.fetch({ 'withRelated': ['component'] })
-			.then(function(componentPermission) {
-				componentPermission = self._camelize(componentPermission.toJSON());
-
-				var responseData = {};
-				responseData.id = componentPermission.id;
-				responseData.displayName = componentPermission.displayName;
-				responseData.description = componentPermission.description;
-				responseData.componentName = componentPermission.component.displayName;
-
-				response.status(200).json({
-					'organizationManagerComponentPermission': responseData
 				});
 			})
 			.catch(function(err) {

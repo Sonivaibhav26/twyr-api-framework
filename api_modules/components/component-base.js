@@ -71,8 +71,9 @@ var simpleComponent = prime({
 			for(var idx in self.$components) {
 				var thisComponent = self.$components[idx],
 					router = thisComponent.getRouter(),
-					mountPath = self.$config ? (self.$config.componentMountPath || '') : '';
+					mountPath = self.$config ? (self.$config.componentMountPath || '/') : '/';
 
+				console.log('Loading sub-component ' + thisComponent.name + ' @ ' + path.join(mountPath, thisComponent.name));
 				self.$router.use(path.join(mountPath, thisComponent.name), router);
 			}
 
