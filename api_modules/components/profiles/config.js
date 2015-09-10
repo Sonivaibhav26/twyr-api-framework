@@ -11,28 +11,6 @@
 "use strict";
 
 exports.development = ({
-	'randomServer': {
-		'protocol': 'https',
-		'options': {
-			'method': 'POST',
-			'host': 'api.random.org',
-			'port': 443,
-			'path': '/json-rpc/1/invoke',
-			'data': {
-				'jsonrpc': '2.0',
-				'method': 'generateStrings',
-				'params': {
-					'apiKey': 'e20ac8ec-9748-4736-a61c-d234ac6ac619',
-					'n': 1,
-					'length': 10,
-					'characters': 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
-					'replacement': false
-				},
-				'id': ''
-			}
-		}
-	},
-
 	'notificationServer': {
 		'protocol': 'http',
 
@@ -48,28 +26,6 @@ exports.development = ({
 });
 
 exports.test = ({
-	'randomServer': {
-		'protocol': 'https',
-		'options': {
-			'method': 'POST',
-			'host': 'api.random.org',
-			'port': 443,
-			'path': '/json-rpc/1/invoke',
-			'data': {
-				'jsonrpc': '2.0',
-				'method': 'generateStrings',
-				'params': {
-					'apiKey': 'e20ac8ec-9748-4736-a61c-d234ac6ac619',
-					'n': 1,
-					'length': 10,
-					'characters': 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
-					'replacement': false
-				},
-				'id': ''
-			}
-		}
-	},
-
 	'notificationServer': {
 		'protocol': 'http',
 
@@ -85,28 +41,6 @@ exports.test = ({
 });
 
 exports.stage = ({
-	'randomServer': {
-		'protocol': 'https',
-		'options': {
-			'method': 'POST',
-			'host': 'api.random.org',
-			'port': 443,
-			'path': '/json-rpc/1/invoke',
-			'data': {
-				'jsonrpc': '2.0',
-				'method': 'generateStrings',
-				'params': {
-					'apiKey': 'e20ac8ec-9748-4736-a61c-d234ac6ac619',
-					'n': 1,
-					'length': 10,
-					'characters': 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
-					'replacement': false
-				},
-				'id': ''
-			}
-		}
-	},
-
 	'notificationServer': {
 		'protocol': 'http',
 
@@ -122,28 +56,6 @@ exports.stage = ({
 });
 
 exports.production = ({
-	'randomServer': {
-		'protocol': 'https',
-		'options': {
-			'method': 'POST',
-			'host': 'api.random.org',
-			'port': 443,
-			'path': '/json-rpc/1/invoke',
-			'data': {
-				'jsonrpc': '2.0',
-				'method': 'generateStrings',
-				'params': {
-					'apiKey': 'e20ac8ec-9748-4736-a61c-d234ac6ac619',
-					'n': 1,
-					'length': 10,
-					'characters': 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
-					'replacement': false
-				},
-				'id': ''
-			}
-		}
-	},
-
 	'notificationServer': {
 		'protocol': 'http',
 

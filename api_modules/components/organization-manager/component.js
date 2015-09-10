@@ -406,6 +406,58 @@ var organizationManagerComponent = prime({
 			});
 		});
 
+		this.$router.post('/organizationManagerUsers', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			var randomRequestData = JSON.parse(JSON.stringify(self.$config.randomServer.options)),
+				newPassword = '';
+
+			randomRequestData.data.id = uuid.v4().toString().replace(/-/g, '');
+			randomRequestData.data = JSON.stringify(randomRequestData.data);
+
+			self.$module.$utilities.restCall(self.$config.randomServer.protocol, randomRequestData)
+			.then(function(randomData) {
+				randomData = JSON.parse(randomData);
+				newPassword = randomData.result.random.data[0];
+
+				return new self.$UserModel()
+				.save({
+					'id': request.body.organizationManagerUser.id,
+					'email': request.body.organizationManagerUser.login,
+					'password': bcrypt.hashSync(randomData.result.random.data[0]),
+					'first_name': request.body.organizationManagerUser.firstName,
+					'last_name': request.body.organizationManagerUser.lastName,
+					'created_on': request.body.organizationManagerUser.createdOn
+				}, {
+					'method': 'insert'
+				});
+			})
+			.then(function(userRecord) {
+				response.status(200).json({
+					'organizationManagerUser': {
+						'id': userRecord.get('id')
+					}
+				});
+			})
+			.then(function() {
+				var notificationOptions = JSON.parse(JSON.stringify(self.$config.notificationServer.options));
+				notificationOptions.path = self.$config.notificationServer.newAccountPath;
+				notificationOptions.data = JSON.stringify({
+					'username': request.body.organizationManagerUser.login,
+					'password': newPassword
+				});
+
+				return self.$module.$utilities.restCall(self.$config.notificationServer.protocol, notificationOptions);
+			})
+			.then(function(notificationResponse) {
+				self.$dependencies.logger.debug('Response from Notificaton Server: ', notificationResponse);
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+			});
+		});
+
 		this.$router.get('/organizationManagerUsers/:userId', function(request, response, next) {
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');

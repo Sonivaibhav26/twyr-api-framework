@@ -508,7 +508,9 @@ var organizationManagerGroupsComponent = prime({
 			})
 			.then(function(savedRecord) {
 				response.status(200).json({
-					'organizationManagerGroupUser': savedRecord.get('id')
+					'organizationManagerGroupUser': {
+						'id': savedRecord.get('id')
+					}
 				});
 			})
 			.catch(function(err) {
