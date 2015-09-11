@@ -104,6 +104,35 @@ var masterdataComponent = prime({
 			});
 		});
 
+		this.$router.get('/tenantEmails', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/javascript');
+
+			if(!request.user) {
+				response.status(200).send('');
+				return;
+			}
+
+			self.$dependencies.databaseService.knex.raw('SELECT A.* FROM users A INNER JOIN users_tenants B ON (A.id = B.user_id) WHERE A.email ILIKE \'%' + request.query.filter + '%\' AND A.is_searchable = true AND B.tenant_id = \'' + request.query.tenant + '\';')
+			.then(function(users) {
+				var responseData = [];
+				for(var idx in users.rows) {
+					responseData.push({
+						'id': users.rows[idx].id,
+						'name': users.rows[idx].first_name + ' ' + users.rows[idx].last_name,
+						'email': users.rows[idx].email
+					});
+				}
+
+				self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nResponse: ', responseData);
+				response.status(200).json(responseData);
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).json({ 'code': 422, 'message': err.message || err.detail || 'Error fetching genders from the database' });
+			});
+		});
+
 		this.$router.get('/groupPermissions', function(request, response, next) {
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');

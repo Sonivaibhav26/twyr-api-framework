@@ -406,6 +406,25 @@ var organizationManagerComponent = prime({
 			});
 		});
 
+		this.$router.delete('/organizationManagerTenantUsers/:userTenantId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			new self.$UserTenantModel({ 'id': request.params.userTenantId })
+			.destroy()
+			.then(function() {
+				response.status(200).json({});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).json({
+					'errors': {
+						'id': [err.detail || err.message]
+					}
+				});
+			});
+		});
+
 		this.$router.post('/organizationManagerUsers', function(request, response, next) {
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
