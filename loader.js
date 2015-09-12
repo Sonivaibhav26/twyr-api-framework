@@ -444,7 +444,6 @@ var twyrLoader = prime({
 				}
 
 				if(currentDependency) {
-					console.log(this.$module.name + ' dependency::' + thisComponentDependency + ': ', currentDependency);
 					Object.defineProperty(thisComponentDependencies, thisComponentDependency, {
 						'__proto__': null,
 						'configurable': true,

@@ -1,10 +1,10 @@
 /*
- * Name			: portal_modules/components/organization-manager/sub-components/suborganizations/component.js
+ * Name			: portal_modules/components/organization-manager/sub-components/groups/component.js
  * Author		: Vish Desai (vishwakarma_d@hotmail.com)
  * Version		: 0.6.1
  * Copyright	: Copyright (c) 2014 Vish Desai (https://www.linkedin.com/in/vishdesai).
  * License		: The MIT License (http://opensource.org/licenses/MIT).
- * Description	: The Twy'r Portal Organization Manager Suborganization Sub-component
+ * Description	: The Twy'r Portal Organization Manager Groups Sub-component
  *
  */
 
@@ -158,16 +158,24 @@ var organizationManagerGroupsComponent = prime({
 			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
-			new self.$GroupModel()
-			.query(function(qb) {
-				if(request.query.group == '#')
-					qb.where('tenant_id', '=', request.query.tenant);
-				else
-					qb
-					.where('tenant_id', '=', request.query.tenant)
-					.andWhere('parent_id', '=', request.query.group);
+			self._checkPermissionAsync(request, requiredPermission, request.query.tenant)
+			.then(function(isAllowed) {
+				if(!isAllowed) {
+					throw({ 'code': 403, 'message': 'Unauthorized access!' });
+					return;
+				}
+
+				return new self.$GroupModel()
+				.query(function(qb) {
+					if(request.query.group == '#')
+						qb.where('tenant_id', '=', request.query.tenant);
+					else
+						qb
+						.where('tenant_id', '=', request.query.tenant)
+						.andWhere('parent_id', '=', request.query.group);
+				})
+				.fetchAll({ 'withRelated': ['subgroups'] });
 			})
-			.fetchAll({ 'withRelated': ['subgroups'] })
 			.then(function(tenantGroups) {
 				tenantGroups = self._camelize(tenantGroups.toJSON());
 				self.$dependencies.logger.debug('Tenant Groups: ', JSON.stringify(tenantGroups));
@@ -210,9 +218,17 @@ var organizationManagerGroupsComponent = prime({
 			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
-			new self.$GroupModel()
-			.where('tenant_id', '=', request.query.tenant)
-			.fetchAll({ 'withRelated': ['parent', 'subgroups', 'permissions', 'users'] })
+			self._checkPermissionAsync(request, requiredPermission, request.query.tenant)
+			.then(function(isAllowed) {
+				if(!isAllowed) {
+					throw({ 'code': 403, 'message': 'Unauthorized access!' });
+					return;
+				}
+
+				return new self.$GroupModel()
+					.where('tenant_id', '=', request.query.tenant)
+					.fetchAll({ 'withRelated': ['parent', 'subgroups', 'permissions', 'users'] });
+			})
 			.then(function(tenantGroups) {
 				tenantGroups = self._camelize(tenantGroups.toJSON());
 
@@ -265,15 +281,23 @@ var organizationManagerGroupsComponent = prime({
 			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
-			new self.$GroupModel()
-			.save({
-				'id': request.body.organizationManagerGroup.id,
-				'display_name': request.body.organizationManagerGroup.name,
-				'tenant_id': request.body.organizationManagerGroup.tenant,
-				'parent_id': request.body.organizationManagerGroup.parent,
-				'created_on': request.body.organizationManagerGroup.createdOn,
-			}, {
-				'method': 'insert'
+			self._checkPermissionAsync(request, requiredPermission, request.body.organizationManagerGroup.tenant)
+			.then(function(isAllowed) {
+				if(!isAllowed) {
+					throw({ 'code': 403, 'message': 'Unauthorized access!' });
+					return;
+				}
+
+				return new self.$GroupModel()
+				.save({
+					'id': request.body.organizationManagerGroup.id,
+					'display_name': request.body.organizationManagerGroup.name,
+					'tenant_id': request.body.organizationManagerGroup.tenant,
+					'parent_id': request.body.organizationManagerGroup.parent,
+					'created_on': request.body.organizationManagerGroup.createdOn,
+				}, {
+					'method': 'insert'
+				});
 			})
 			.then(function(savedRecord) {
 				response.status(200).json({
@@ -300,6 +324,17 @@ var organizationManagerGroupsComponent = prime({
 			.fetch({ 'withRelated': ['parent', 'subgroups', 'permissions', 'users'] })
 			.then(function(tenantGroup) {
 				tenantGroup = self._camelize(tenantGroup.toJSON());
+
+				return promises.all([self._checkPermissionAsync(request, requiredPermission, tenantGroup.tenantId), tenantGroup]);
+			})
+			.then(function(result) {
+				var isAllowed = result[0],
+					tenantGroup = result[1];
+
+				if(!isAllowed) {
+					throw({ 'code': 403, 'message': 'Unauthorized access!' });
+					return;
+				}
 
 				var groupResponse = {
 					'id': tenantGroup.id,
@@ -343,12 +378,20 @@ var organizationManagerGroupsComponent = prime({
 			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
-			new self.$GroupModel({ 'id': request.params.groupId })
-			.save({
-				'display_name': request.body.organizationManagerGroup.name
-			}, {
-				'method': 'update',
-				'patch': true
+			self._checkPermissionAsync(request, requiredPermission, request.body.organizationManagerGroup.tenant)
+			.then(function(isAllowed) {
+				if(!isAllowed) {
+					throw({ 'code': 403, 'message': 'Unauthorized access!' });
+					return;
+				}
+
+				return new self.$GroupModel({ 'id': request.params.groupId })
+				.save({
+					'display_name': request.body.organizationManagerGroup.name
+				}, {
+					'method': 'update',
+					'patch': true
+				});
 			})
 			.then(function(savedRecord) {
 				response.status(200).json({
@@ -372,7 +415,18 @@ var organizationManagerGroupsComponent = prime({
 			response.type('application/json');
 
 			new self.$GroupModel({ 'id': request.params.groupId })
-			.destroy()
+			.fetch()
+			.then(function(group) {
+				return self._checkPermissionAsync(request, requiredPermission, group.get('tenant_id'));
+			})
+			.then(function(isAllowed) {
+				if(!isAllowed) {
+					throw({ 'code': 403, 'message': 'Unauthorized access!' });
+					return;
+				}
+
+				return new self.$GroupModel({ 'id': request.params.groupId }).destroy();
+			})
 			.then(function() {
 				response.status(200).json({});
 			})
@@ -390,14 +444,26 @@ var organizationManagerGroupsComponent = prime({
 			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
-			new self.$GroupComponentPermissionModel()
-			.save({
-				'id': request.body.organizationManagerGroupPermission.id,
-				'group_id': request.body.organizationManagerGroupPermission.group,
-				'component_permission_id': request.body.organizationManagerGroupPermission.permission,
-				'created_on': request.body.organizationManagerGroupPermission.createdOn
-			}, {
-				'method': 'insert'
+			new self.$GroupModel({ 'id': request.body.organizationManagerGroupPermission.group })
+			.fetch()
+			.then(function(group) {
+				return self._checkPermissionAsync(request, requiredPermission, group.get('tenant_id'));
+			})
+			.then(function(isAllowed) {
+				if(!isAllowed) {
+					throw({ 'code': 403, 'message': 'Unauthorized access!' });
+					return;
+				}
+
+				return new self.$GroupComponentPermissionModel()
+				.save({
+					'id': request.body.organizationManagerGroupPermission.id,
+					'group_id': request.body.organizationManagerGroupPermission.group,
+					'component_permission_id': request.body.organizationManagerGroupPermission.permission,
+					'created_on': request.body.organizationManagerGroupPermission.createdOn
+				}, {
+					'method': 'insert'
+				});
 			})
 			.then(function(savedRecord) {
 				response.status(200).json({
@@ -420,9 +486,23 @@ var organizationManagerGroupsComponent = prime({
 			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
+			var groupPermission = null;
+
 			new self.$GroupComponentPermissionModel({ 'id': request.params.groupPermissionId })
 			.fetch()
-			.then(function(groupPermission) {
+			.then(function(groupPerm) {
+				groupPermission = groupPerm;
+				return new self.$GroupModel({ 'id': groupPermission.get('group_id') }).fetch();
+			})
+			.then(function(group) {
+				return self._checkPermissionAsync(request, requiredPermission, group.get('tenant_id'));
+			})
+			.then(function(isAllowed) {
+				if(!isAllowed) {
+					throw({ 'code': 403, 'message': 'Unauthorized access!' });
+					return;
+				}
+
 				var responseData = {
 					'id': groupPermission.get('id'),
 					'group': groupPermission.get('group_id'),
@@ -449,7 +529,22 @@ var organizationManagerGroupsComponent = prime({
 			response.type('application/json');
 
 			new self.$GroupComponentPermissionModel({ 'id': request.params.groupPermissionId })
-			.destroy()
+			.fetch()
+			.then(function(groupPerm) {
+				groupPermission = groupPerm;
+				return new self.$GroupModel({ 'id': groupPermission.get('group_id') }).fetch();
+			})
+			.then(function(group) {
+				return self._checkPermissionAsync(request, requiredPermission, group.get('tenant_id'));
+			})
+			.then(function(isAllowed) {
+				if(!isAllowed) {
+					throw({ 'code': 403, 'message': 'Unauthorized access!' });
+					return;
+				}
+
+				return new self.$GroupComponentPermissionModel({ 'id': request.params.groupPermissionId }).destroy();
+			})
 			.then(function(groupPermission) {
 				response.status(200).json({});
 			})
@@ -497,14 +592,26 @@ var organizationManagerGroupsComponent = prime({
 			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
-			new self.$GroupUserModel()
-			.save({
-				'id': request.body.organizationManagerGroupUser.id,
-				'user_id': request.body.organizationManagerGroupUser.user,
-				'group_id': request.body.organizationManagerGroupUser.group,
-				'created_on': request.body.organizationManagerGroupUser.createdOn
-			}, {
-				'method': 'insert'
+			new self.$GroupModel({ 'id': request.body.organizationManagerGroupUser.group })
+			.fetch()
+			.then(function(group) {
+				return self._checkPermissionAsync(request, requiredPermission, group.get('tenant_id'));
+			})
+			.then(function(isAllowed) {
+				if(!isAllowed) {
+					throw({ 'code': 403, 'message': 'Unauthorized access!' });
+					return;
+				}
+
+				return new self.$GroupUserModel()
+				.save({
+					'id': request.body.organizationManagerGroupUser.id,
+					'user_id': request.body.organizationManagerGroupUser.user,
+					'group_id': request.body.organizationManagerGroupUser.group,
+					'created_on': request.body.organizationManagerGroupUser.createdOn
+				}, {
+					'method': 'insert'
+				})
 			})
 			.then(function(savedRecord) {
 				response.status(200).json({
@@ -527,10 +634,24 @@ var organizationManagerGroupsComponent = prime({
 			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
+			var groupUser = null;
+
 			new self.$GroupUserModel({ 'id': request.params.groupUserId })
 			.fetch()
-			.then(function(groupUser) {
-				groupUser = self._camelize(groupUser.toJSON());
+			.then(function(grUser) {
+				groupUser = self._camelize(grUser.toJSON());
+
+				return new self.$GroupModel({ 'id': groupUser.groupId }).fetch();
+			})
+			.then(function(group) {
+				return self._checkPermissionAsync(request, requiredPermission, group.get('tenant_id'));
+			})
+			.then(function(isAllowed) {
+				if(!isAllowed) {
+					throw({ 'code': 403, 'message': 'Unauthorized access!' });
+					return;
+				}
+
 				response.status(200).json({
 					'organizationManagerGroupUser': {
 						'id': groupUser.id,
@@ -557,7 +678,23 @@ var organizationManagerGroupsComponent = prime({
 			response.type('application/json');
 
 			new self.$GroupUserModel({ 'id': request.params.groupUserId })
-			.destroy()
+			.fetch()
+			.then(function(grUser) {
+				groupUser = self._camelize(grUser.toJSON());
+
+				return new self.$GroupModel({ 'id': groupUser.groupId }).fetch();
+			})
+			.then(function(group) {
+				return self._checkPermissionAsync(request, requiredPermission, group.get('tenant_id'));
+			})
+			.then(function(isAllowed) {
+				if(!isAllowed) {
+					throw({ 'code': 403, 'message': 'Unauthorized access!' });
+					return;
+				}
+
+				return new self.$GroupUserModel({ 'id': request.params.groupUserId }).destroy();
+			})
 			.then(function() {
 				response.status(200).json({});
 			})
