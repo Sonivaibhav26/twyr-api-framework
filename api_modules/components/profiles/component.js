@@ -176,12 +176,18 @@ var profilesComponent = prime({
 				userRecord = userRecord.toJSON();
 				delete userRecord.password;
 
-				var responseData = {};
+				var responseData = {
+					'id': userRecord.id,
+					'type': 'profiles',
+					'attributes': {}
+				};
+
 				Object.keys(userRecord).forEach(function(key) {
-					responseData[inflection.camelize(key, true)] = userRecord[key];
+					if(key == 'id') return;
+					responseData.attributes[inflection.dasherize(key)] = userRecord[key];
 				});
 
-				response.status(200).json({'profile': responseData});
+				response.status(200).json({'data': responseData});
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
@@ -223,9 +229,10 @@ var profilesComponent = prime({
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 
 				response.status(422).json({
-					'errors': {
-						'id': [err.message || err.detail || 'Cannot update profile information']
-					}
+					'errors': [{
+						'source': { 'pointer': 'data/attributes/id' },
+						'detail': err.detail || err.message
+					}]
 				});
 			});
 		});
@@ -247,9 +254,10 @@ var profilesComponent = prime({
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 
 				response.status(422).json({
-					'errors': {
-						'id': [err.message || err.detail || 'Cannot delete profile information']
-					}
+					'errors': [{
+						'source': { 'pointer': 'data/attributes/id' },
+						'detail': err.detail || err.message
+					}]
 				});
 			});
 		});

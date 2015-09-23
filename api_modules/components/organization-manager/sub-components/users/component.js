@@ -130,9 +130,10 @@ var organizationManagerUsersComponent = prime({
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
-					'errors': {
-						'id': [err.detail || err.message]
-					}
+					'errors': [{
+						'source': { 'pointer': 'data/attributes/id' },
+						'detail': err.detail || err.message
+					}]
 				});
 			});
 		});
@@ -168,9 +169,10 @@ var organizationManagerUsersComponent = prime({
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
-					'errors': {
-						'id': [err.detail || err.message]
-					}
+					'errors': [{
+						'source': { 'pointer': 'data/attributes/id' },
+						'detail': err.detail || err.message
+					}]
 				});
 			});
 		});
@@ -205,9 +207,10 @@ var organizationManagerUsersComponent = prime({
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
-					'errors': {
-						'id': [err.detail || err.message]
-					}
+					'errors': [{
+						'source': { 'pointer': 'data/attributes/id' },
+						'detail': err.detail || err.message
+					}]
 				});
 			});
 		});
@@ -235,9 +238,10 @@ var organizationManagerUsersComponent = prime({
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
-					'errors': {
-						'id': [err.detail || err.message]
-					}
+					'errors': [{
+						'source': { 'pointer': 'data/attributes/id' },
+						'detail': err.detail || err.message
+					}]
 				});
 			});
 		});

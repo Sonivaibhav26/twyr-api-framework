@@ -214,9 +214,10 @@ var organizationManagerComponent = prime({
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
-					'errors': {
-						'id': [err.detail || err.message]
-					}
+					'errors': [{
+						'source': { 'pointer': 'data/attributes/id' },
+						'detail': err.detail || err.message
+					}]
 				});
 			});
 		});
@@ -279,9 +280,10 @@ var organizationManagerComponent = prime({
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
-					'errors': {
-						'id': [err.detail || err.message]
-					}
+					'errors': [{
+						'source': { 'pointer': 'data/attributes/id' },
+						'detail': err.detail || err.message
+					}]
 				});
 			});
 		});
@@ -317,9 +319,10 @@ var organizationManagerComponent = prime({
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
-					'errors': {
-						'id': [err.detail || err.message]
-					}
+					'errors': [{
+						'source': { 'pointer': 'data/attributes/id' },
+						'detail': err.detail || err.message
+					}]
 				});
 			});
 		});
@@ -343,9 +346,10 @@ var organizationManagerComponent = prime({
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
-					'errors': {
-						'id': [err.detail || err.message]
-					}
+					'errors': [{
+						'source': { 'pointer': 'data/attributes/id' },
+						'detail': err.detail || err.message
+					}]
 				});
 			});
 		});
@@ -383,6 +387,16 @@ var organizationManagerComponent = prime({
 						'id': userRecord.get('id')
 					}
 				});
+			})
+			.catch(function(err) {
+				response.status(422).json({
+					'errors': [{
+						'source': { 'pointer': 'data/attributes/id' },
+						'detail': err.detail || err.message
+					}]
+				});
+
+				throw err;
 			})
 			.then(function() {
 				var notificationOptions = JSON.parse(JSON.stringify(self.$config.notificationServer.options));
@@ -423,9 +437,10 @@ var organizationManagerComponent = prime({
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
-					'errors': {
-						'id': [err.detail || err.message]
-					}
+					'errors': [{
+						'source': { 'pointer': 'data/attributes/id' },
+						'detail': err.detail || err.message
+					}]
 				});
 			});
 		});
