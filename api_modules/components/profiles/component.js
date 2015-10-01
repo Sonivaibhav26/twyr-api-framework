@@ -71,7 +71,7 @@ var profilesComponent = prime({
 		var self = this;
 
 		this.$router.post('/changePassword', function(request, response, next) {
-			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			self.$dependencies.logger.silly('Servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
 
 			new self.$UserModel({ 'id': request.user.id }).fetch()
@@ -118,12 +118,12 @@ var profilesComponent = prime({
 				self.$dependencies.logger.debug('Response from Notificaton Server: ', notificationResponse);
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 			});
 		});
 
 		this.$router.post('/unlink/:socialNetwork', function(request, response, next) {
-			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			self.$dependencies.logger.silly('Servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
 
 			self.$dependencies.cacheService.getAsync('twyr!portal!user!' + request.user.id)
@@ -149,8 +149,7 @@ var profilesComponent = prime({
 				});
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-
+				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(err.number || err.code || 500).send({
 					'status': false,
 					'responseText': err.message || 'Error unlinking your account'
@@ -190,7 +189,7 @@ var profilesComponent = prime({
 				response.status(200).json({'data': responseData});
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(err.code || err.number || 500).json({
 					'status': false,
 					'responseText': err.message || err.detail || 'Cannot retrieve profile information'
@@ -198,8 +197,8 @@ var profilesComponent = prime({
 			});
 		});
 
-		this.$router.put('/:profileId', function(request, response, next) {
-			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+		this.$router.patch('/:profileId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
 
 			new self.$UserModel({ 'id': request.user.id })
@@ -214,20 +213,23 @@ var profilesComponent = prime({
 					return;
 				}
 
-				var updatedData = request.body.profile;
+				var updatedData = request.body.data.attributes;
 				Object.keys(updatedData).forEach(function(key) {
-					self.$dependencies.logger.debug('userRecord.set(' + inflection.underscore(key) + ', ' + ((updatedData[key] !== undefined) ? updatedData[key] : null) + ')');
-					userRecord.set(inflection.underscore(key), ((updatedData[key] !== undefined) ? updatedData[key] : null));
+					userRecord.set(key.replace(/-/g, '_'), ((updatedData[key] !== undefined) ? updatedData[key] : null));
 				});
 
 				return userRecord.save();
 			})
 			.then(function(savedRecord) {
-				response.status(200).json({ 'profiles': { 'id': savedRecord.get('id') } });
+				response.status(200).json({
+					'data': {
+						'id': savedRecord.get('id'),
+						'type': request.body.data.type
+					}
+				});
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-
+				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': [{
 						'source': { 'pointer': 'data/attributes/id' },
@@ -238,8 +240,30 @@ var profilesComponent = prime({
 		});
 
 		this.$router.delete('/:profileId', function(request, response, next) {
-			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			self.$dependencies.logger.silly('Servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/javascript');
+
+			if(!request.user) {
+				response.status(403).json({
+					'errors': [{
+						'source': { 'pointer': 'data/attributes/id' },
+						'detail': 'Unautorized Deletion'
+					}]
+				});
+
+				return;
+			}
+
+			if(request.user.id != request.params.profileId) {
+				response.status(403).json({
+					'errors': [{
+						'source': { 'pointer': 'data/attributes/id' },
+						'detail': 'Unautorized Deletion'
+					}]
+				});
+
+				return;
+			}
 
 			self.$dependencies.eventService.emit('logout', request.user.id);
 			self.$dependencies.cacheService.delAsync('twyr!portal!user!' + request.user.id)
@@ -248,12 +272,11 @@ var profilesComponent = prime({
 				return new self.$UserModel({ 'id': request.params.profileId }).destroy();
 			})
 			.then(function() {
-				response.status(200).json({});
+				response.status(204).json({});
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-
-				response.status(422).json({
+				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(403).json({
 					'errors': [{
 						'source': { 'pointer': 'data/attributes/id' },
 						'detail': err.detail || err.message

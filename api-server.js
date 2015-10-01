@@ -146,6 +146,10 @@ var app = prime({
 				.use(bodyParser.json({
 					'limit': self.$config.maxRequestSize
 				}))
+				.use(bodyParser.json({
+					'type': 'application/vnd.api+json',
+					'limit': self.$config.maxRequestSize
+				}))
 				.use(bodyParser.raw({
 					'limit': self.$config.maxRequestSize
 				}))

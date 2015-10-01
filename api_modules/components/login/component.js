@@ -237,7 +237,7 @@ var loginComponent = prime({
 						'lastname': 'required'
 					};
 
-				var validationResult = validator.make(validationData, validationRules);
+				var validationResult = new validator(validationData, validationRules);
 				if(validationResult.fails()) {
 					throw validationResult.errors.all();
 					return;

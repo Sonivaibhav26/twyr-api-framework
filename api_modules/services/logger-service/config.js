@@ -24,7 +24,7 @@ exports.development = ({
 		'filename': 'logs/api-server.log',
 		'maxsize': 10485760,
 		'maxfiles': 5,
-		'json': false
+		'json': true
 	}
 });
 

@@ -95,8 +95,8 @@ var organizationManagerLocationsComponent = prime({
 	'_addRoutes': function() {
 		var self = this;
 
-		this.$router.get('/organizationManagerTenantLocations', function(request, response, next) {
-			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+		this.$router.get('/organization-manager-tenant-locations', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
 			self._checkPermissionAsync(request, requiredPermission, request.query.tenant)
@@ -113,24 +113,40 @@ var organizationManagerLocationsComponent = prime({
 			.then(function(tenantLocations) {
 				tenantLocations = self._camelize(tenantLocations.toJSON());
 
-				var responseData = [];
+				var responseData = { 'data': [] };
 				for(var idx in tenantLocations) {
 					var thisTenantLocation = tenantLocations[idx];
-					responseData.push({
+					responseData.data.push({
 						'id': thisTenantLocation.id,
-						'name': thisTenantLocation.name,
-						'tenant': thisTenantLocation.tenantId,
-						'location': thisTenantLocation.addressId,
-						'createdOn': thisTenantLocation.createdOn
+						'type': 'organization-manager-tenant-locations',
+
+						'attributes': {
+							'name': thisTenantLocation.name,
+							'createdOn': thisTenantLocation.createdOn
+						},
+
+						'relationships': {
+							'tenant': {
+								'data': {
+									'id': thisTenantLocation.tenantId,
+									'type': 'organization-manager'
+								}
+							},
+
+							'location': {
+								'data': {
+									'id': thisTenantLocation.addressId,
+									'type': 'organization-manager-locations'
+								}
+							}
+						}
 					});
 				}
 
-				response.status(200).json({
-					'organizationManagerTenantLocations': responseData
-				});
+				response.status(200).json(responseData);
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': [{
 						'source': { 'pointer': 'data/attributes/id' },
@@ -140,11 +156,11 @@ var organizationManagerLocationsComponent = prime({
 			});
 		});
 
-		this.$router.post('/organizationManagerTenantLocations', function(request, response, next) {
-			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+		this.$router.post('/organization-manager-tenant-locations', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
-			self._checkPermissionAsync(request, requiredPermission, request.body.organizationManagerTenantLocation.tenant)
+			self._checkPermissionAsync(request, requiredPermission, request.body.data.relationships.tenant.data.id)
 			.then(function(isAllowed) {
 				if(!isAllowed) {
 					throw({ 'code': 403, 'message': 'Unauthorized access!' });
@@ -153,24 +169,25 @@ var organizationManagerLocationsComponent = prime({
 
 				return new self.$TenantAddressModel()
 				.save({
-					'id': request.body.organizationManagerTenantLocation.id,
-					'name': request.body.organizationManagerTenantLocation.name,
-					'tenant_id': request.body.organizationManagerTenantLocation.tenant,
-					'address_id': request.body.organizationManagerTenantLocation.location,
-					'created_on': request.body.organizationManagerTenantLocation.createdOn
+					'id': request.body.data.id,
+					'name': request.body.data.attributes.name,
+					'tenant_id': request.body.data.relationships.tenant.data.id,
+					'address_id': request.body.data.relationships.location.data.id,
+					'created_on': request.body.data.attributes['created-on']
 				}, {
 					'method': 'insert'
 				});
 			})
 			.then(function(savedRecord) {
 				response.status(200).json({
-					'organizationManagerTenantLocation': {
-						'id': savedRecord.get('id')
+					'data': {
+						'id': savedRecord.get('id'),
+						'type': request.body.data.type
 					}
 				});
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': [{
 						'source': { 'pointer': 'data/attributes/id' },
@@ -180,46 +197,8 @@ var organizationManagerLocationsComponent = prime({
 			});
 		});
 
-		this.$router.get('/organizationManagerTenantLocations/:tenantLocationId', function(request, response, next) {
-			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
-			response.type('application/json');
-
-			var tenantLocation = null;
-
-			new self.$TenantAddressModel({ 'id': request.params.tenantLocationId })
-			.fetch()
-			.then(function(tenantLocationRecord) {
-				tenantLocation = self._camelize(tenantLocationRecord.toJSON());
-				return self._checkPermissionAsync(request, requiredPermission, tenantLocation.tenantId);
-			})
-			.then(function(isAllowed) {
-				if(!isAllowed) {
-					throw({ 'code': 403, 'message': 'Unauthorized access!' });
-					return;
-				}
-
-				response.status(200).json({
-					'organizationManagerTenantLocation': {
-						'id': tenantLocation.id,
-						'tenant': tenantLocation.tenantId,
-						'location': tenantLocation.addressId,
-						'createdOn': tenantLocation.createdOn
-					}
-				});
-			})
-			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
-				response.status(422).json({
-					'errors': [{
-						'source': { 'pointer': 'data/attributes/id' },
-						'detail': err.detail || err.message
-					}]
-				});
-			});
-		});
-
-		this.$router.delete('/organizationManagerTenantLocations/:tenantLocationId', function(request, response, next) {
-			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+		this.$router.delete('/organization-manager-tenant-locations/:tenantLocationId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
 			new self.$TenantAddressModel({ 'id': request.params.tenantLocationId })
@@ -236,10 +215,10 @@ var organizationManagerLocationsComponent = prime({
 				return new self.$TenantAddressModel({ 'id': request.params.tenantLocationId }).destroy();
 			})
 			.then(function() {
-				response.status(200).json({});
+				response.status(204).json({});
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': [{
 						'source': { 'pointer': 'data/attributes/id' },
@@ -249,11 +228,11 @@ var organizationManagerLocationsComponent = prime({
 			});
 		});
 
-		this.$router.post('/organizationManagerLocations', function(request, response, next) {
-			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+		this.$router.post('/organization-manager-locations', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
-			new self.$AddressModel({ 'latitude': request.body.organizationManagerLocation.latitude, 'longitude': request.body.organizationManagerLocation.longitude })
+			new self.$AddressModel({ 'latitude': request.body.data.attributes.latitude, 'longitude': request.body.data.attributes.longitude })
 			.fetch()
 			.then(function(existingAddress) {
 				if(existingAddress) {
@@ -262,28 +241,29 @@ var organizationManagerLocationsComponent = prime({
 
 				return new self.$AddressModel()
 				.save({
-					'route': request.body.organizationManagerLocation.route,
-					'area': request.body.organizationManagerLocation.area,
-					'city': request.body.organizationManagerLocation.city,
-					'postal_code': request.body.organizationManagerLocation.postalCode,
-					'state': request.body.organizationManagerLocation.state,
-					'country': request.body.organizationManagerLocation.country,
-					'latitude': request.body.organizationManagerLocation.latitude,
-					'longitude': request.body.organizationManagerLocation.longitude,
-					'created_on': request.body.organizationManagerLocation.createdOn
+					'route': request.body.data.attributes.route,
+					'area': request.body.data.attributes.area,
+					'city': request.body.data.attributes.city,
+					'postal_code': request.body.data.attributes['postal-code'],
+					'state': request.body.data.attributes.state,
+					'country': request.body.data.attributes.country,
+					'latitude': request.body.data.attributes.latitude,
+					'longitude': request.body.data.attributes.longitude,
+					'created_on': request.body.data.attributes['created-on']
 				}, {
 					'method': 'insert'
 				});
 			})
 			.then(function(locationRecord) {
 				response.status(200).json({
-					'organizationManagerLocation': {
-						'id': locationRecord.get('id')
+					'data': {
+						'id': locationRecord.get('id'),
+						'type': request.body.data.type
 					}
 				});
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': [{
 						'source': { 'pointer': 'data/attributes/id' },
@@ -293,8 +273,8 @@ var organizationManagerLocationsComponent = prime({
 			});
 		});
 
-		this.$router.get('/organizationManagerLocations/:locationId', function(request, response, next) {
-			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+		this.$router.get('/organization-manager-locations/:locationId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
 			new self.$AddressModel({ 'id': request.params.locationId })
@@ -302,11 +282,25 @@ var organizationManagerLocationsComponent = prime({
 			.then(function(locationRecord) {
 				locationRecord = self._camelize(locationRecord.toJSON());
 				response.status(200).json({
-					'organizationManagerLocation': locationRecord
+					'data': {
+						'id': locationRecord.id,
+						'type': 'organization-manager-locations',
+						'attributes': {
+							'area': locationRecord.area,
+							'city': locationRecord.city,
+							'country': locationRecord.country,
+							'created-on': locationRecord.createdOn,
+							'latitude': locationRecord.latitude,
+							'longitude': locationRecord.longitude,
+							'postal-code': locationRecord.postalCode,
+							'route': locationRecord.route,
+							'state': locationRecord.state
+						}
+					}
 				});
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': [{
 						'source': { 'pointer': 'data/attributes/id' },

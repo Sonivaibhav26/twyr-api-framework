@@ -154,8 +154,8 @@ var organizationManagerGroupsComponent = prime({
 	'_addRoutes': function() {
 		var self = this;
 
-		this.$router.get('/organizationGroupsTree', function(request, response, next) {
-			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+		this.$router.get('/organization-manager-groups-tree', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
 			self._checkPermissionAsync(request, requiredPermission, request.query.tenant)
@@ -209,13 +209,13 @@ var organizationManagerGroupsComponent = prime({
 				response.status(200).json(responseData);
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(err.code || err.number || 500).json(err);
 			});
 		});
 
-		this.$router.get('/organizationManagerGroups', function(request, response, next) {
-			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+		this.$router.get('/organization-manager-groups', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
 			self._checkPermissionAsync(request, requiredPermission, request.query.tenant)
@@ -233,42 +233,71 @@ var organizationManagerGroupsComponent = prime({
 				tenantGroups = self._camelize(tenantGroups.toJSON());
 
 				var responseData = {
-					'organizationManagerGroup':[]	
+					'data':[]	
 				};
 
 				for(var idx in tenantGroups) {
 					var thisTenantGroup = tenantGroups[idx],
 						groupResponse = {
 							'id': thisTenantGroup.id,
-							'name': thisTenantGroup.displayName,
-							'tenant': thisTenantGroup.tenantId,
-							'parent': thisTenantGroup.parentId,
-							'createdOn': thisTenantGroup.createdOn,
+							'type': 'organization-manager-groups',
+							'attributes': {
+								'name': thisTenantGroup.displayName,
+								'created-on': thisTenantGroup.createdOn								
+							},
 
-							'subgroups': [],
-							'permissions': [],
-							'users': []
+							'relationships': {
+								'tenant': {
+									'data': {
+										'id': thisTenantGroup.tenantId,
+										'type': 'organization-manager'
+									}
+								},
+	
+								'parent': {
+									'data': {
+										'id': thisTenantGroup.parentId,
+										'type': 'organization-manager-groups'
+									}
+								},
+
+								'subgroups': { 'data': [] },
+								'permissions': { 'data': [] },
+								'users': { 'data': [] }
+							}
 						};
 
 					for(var sgdx in thisTenantGroup.subgroups) {
-						groupResponse.subgroups.push(thisTenantGroup.subgroups[sgdx].id);
+						groupResponse.relationships.subgroups.data.push({
+							'id': thisTenantGroup.subgroups[sgdx].id,
+							'type': 'organization-manager-groups'
+						});
 					}
-
+	
 					for(var pdx in thisTenantGroup.permissions) {
-						groupResponse.permissions.push(thisTenantGroup.permissions[pdx].id);
+						groupResponse.relationships.permissions.data.push({
+							'id': thisTenantGroup.permissions[pdx].id,
+							'type': 'organization-manager-group-permissions'
+						});
 					}
-
+	
 					for(var udx in thisTenantGroup.users) {
-						groupResponse.users.push(thisTenantGroup.users[udx].id);
+						groupResponse.relationships.users.data.push({
+							'id': thisTenantGroup.users[udx].id,
+							'type': 'organization-manager-group-users'
+						});
 					}
 
-					responseData.organizationManagerGroup.push(groupResponse);
+					if(!groupResponse.relationships.parent.data.id)
+						delete groupResponse.relationships.parent;
+
+					responseData.data.push(groupResponse);
 				}
 
 				response.status(200).json(responseData);
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': [{
 						'source': { 'pointer': 'data/attributes/id' },
@@ -278,11 +307,11 @@ var organizationManagerGroupsComponent = prime({
 			});
 		});
 
-		this.$router.post('/organizationManagerGroups', function(request, response, next) {
-			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+		this.$router.post('/organization-manager-groups', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
-			self._checkPermissionAsync(request, requiredPermission, request.body.organizationManagerGroup.tenant)
+			self._checkPermissionAsync(request, requiredPermission, request.body.data.relationships.tenant.id)
 			.then(function(isAllowed) {
 				if(!isAllowed) {
 					throw({ 'code': 403, 'message': 'Unauthorized access!' });
@@ -291,24 +320,25 @@ var organizationManagerGroupsComponent = prime({
 
 				return new self.$GroupModel()
 				.save({
-					'id': request.body.organizationManagerGroup.id,
-					'display_name': request.body.organizationManagerGroup.name,
-					'tenant_id': request.body.organizationManagerGroup.tenant,
-					'parent_id': request.body.organizationManagerGroup.parent,
-					'created_on': request.body.organizationManagerGroup.createdOn,
+					'id': request.body.data.id,
+					'display_name': request.body.data.attributes.name,
+					'tenant_id': request.body.data.relationships.tenant.data.id,
+					'parent_id': request.body.data.relationships.parent.data.id,
+					'created_on': request.body.data.attributes['created-on'],
 				}, {
 					'method': 'insert'
 				});
 			})
 			.then(function(savedRecord) {
 				response.status(200).json({
-					'organizationManagerGroup': {
-						'id': savedRecord.get('id')
+					'data': {
+						'id': savedRecord.get('id'),
+						'type': 'organization-manager-groups'
 					}
 				});
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': [{
 						'source': { 'pointer': 'data/attributes/id' },
@@ -318,8 +348,8 @@ var organizationManagerGroupsComponent = prime({
 			});
 		});
 
-		this.$router.get('/organizationManagerGroups/:groupId', function(request, response, next) {
-			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+		this.$router.get('/organization-manager-groups/:groupId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
 			new self.$GroupModel({ 'id': request.params.groupId })
@@ -339,35 +369,65 @@ var organizationManagerGroupsComponent = prime({
 				}
 
 				var groupResponse = {
-					'id': tenantGroup.id,
-					'name': tenantGroup.displayName,
-					'tenant': tenantGroup.tenantId,
-					'parent': tenantGroup.parentId,
-					'createdOn': tenantGroup.createdOn,
+					'data': {
+						'id': tenantGroup.id,
+						'type': 'organization-manager-groups',
 
-					'subgroups': [],
-					'permissions': [],
-					'users': []
+						'attributes': {
+							'name': tenantGroup.displayName,
+							'created-on': tenantGroup.createdOn							
+						},
+
+						'relationships': {
+							'tenant': {
+								'data': {
+									'id': tenantGroup.tenantId,
+									'type': 'organization-manager'
+								}
+							},
+
+							'parent': {
+								'data': {
+									'id': tenantGroup.parentId,
+									'type': 'organization-manager-groups'
+								}
+							},
+
+							'subgroups': { 'data': [] },
+							'permissions': { 'data': [] },
+							'users': { 'data': [] }
+						}
+					}
 				};
 
 				for(var sgdx in tenantGroup.subgroups) {
-					groupResponse.subgroups.push(tenantGroup.subgroups[sgdx].id);
+					groupResponse.data.relationships.subgroups.data.push({
+						'id': tenantGroup.subgroups[sgdx].id,
+						'type': 'organization-manager-groups'
+					});
 				}
 
 				for(var pdx in tenantGroup.permissions) {
-					groupResponse.permissions.push(tenantGroup.permissions[pdx].id);
+					groupResponse.data.relationships.permissions.data.push({
+						'id': tenantGroup.permissions[pdx].id,
+						'type': 'organization-manager-group-permissions'
+					});
 				}
 
 				for(var udx in tenantGroup.users) {
-					groupResponse.users.push(tenantGroup.users[udx].id);
+					groupResponse.data.relationships.users.data.push({
+						'id': tenantGroup.users[udx].id,
+						'type': 'organization-manager-group-users'
+					});
 				}
 
-				response.status(200).json({
-					'organizationManagerGroup': groupResponse
-				});
+				if(!groupResponse.data.relationships.parent.data.id)
+					delete groupResponse.data.relationships.parent;
+
+				response.status(200).json(groupResponse);
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': [{
 						'source': { 'pointer': 'data/attributes/id' },
@@ -377,11 +437,11 @@ var organizationManagerGroupsComponent = prime({
 			});
 		});
 
-		this.$router.put('/organizationManagerGroups/:groupId', function(request, response, next) {
-			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+		this.$router.patch('/organization-manager-groups/:groupId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
-			self._checkPermissionAsync(request, requiredPermission, request.body.organizationManagerGroup.tenant)
+			self._checkPermissionAsync(request, requiredPermission, request.body.data.relationships.tenant.id)
 			.then(function(isAllowed) {
 				if(!isAllowed) {
 					throw({ 'code': 403, 'message': 'Unauthorized access!' });
@@ -390,7 +450,7 @@ var organizationManagerGroupsComponent = prime({
 
 				return new self.$GroupModel({ 'id': request.params.groupId })
 				.save({
-					'display_name': request.body.organizationManagerGroup.name
+					'display_name': request.body.data.attributes.name
 				}, {
 					'method': 'update',
 					'patch': true
@@ -398,13 +458,14 @@ var organizationManagerGroupsComponent = prime({
 			})
 			.then(function(savedRecord) {
 				response.status(200).json({
-					'organizationManagerGroup': {
-						'id': savedRecord.get('id')
+					'data': {
+						'id': savedRecord.get('id'),
+						'type': 'organization-manager-group'
 					}
 				});
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': [{
 						'source': { 'pointer': 'data/attributes/id' },
@@ -414,8 +475,8 @@ var organizationManagerGroupsComponent = prime({
 			});
 		});
 
-		this.$router.delete('/organizationManagerGroups/:groupId', function(request, response, next) {
-			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+		this.$router.delete('/organization-manager-groups/:groupId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
 			new self.$GroupModel({ 'id': request.params.groupId })
@@ -432,10 +493,10 @@ var organizationManagerGroupsComponent = prime({
 				return new self.$GroupModel({ 'id': request.params.groupId }).destroy();
 			})
 			.then(function() {
-				response.status(200).json({});
+				response.status(204).json({});
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': [{
 						'source': { 'pointer': 'data/attributes/id' },
@@ -445,11 +506,11 @@ var organizationManagerGroupsComponent = prime({
 			});
 		});
 
-		this.$router.post('/organizationManagerGroupPermissions', function(request, response, next) {
-			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+		this.$router.post('/organization-manager-group-permissions', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
-			new self.$GroupModel({ 'id': request.body.organizationManagerGroupPermission.group })
+			new self.$GroupModel({ 'id': request.body.data.relationships.group.data.id })
 			.fetch()
 			.then(function(group) {
 				return self._checkPermissionAsync(request, requiredPermission, group.get('tenant_id'));
@@ -462,23 +523,24 @@ var organizationManagerGroupsComponent = prime({
 
 				return new self.$GroupComponentPermissionModel()
 				.save({
-					'id': request.body.organizationManagerGroupPermission.id,
-					'group_id': request.body.organizationManagerGroupPermission.group,
-					'component_permission_id': request.body.organizationManagerGroupPermission.permission,
-					'created_on': request.body.organizationManagerGroupPermission.createdOn
+					'id': request.body.data.id,
+					'group_id': request.body.data.relationships.group.data.id,
+					'component_permission_id': request.body.data.relationships.permission.data.id,
+					'created_on': request.body.data.attributes['created-on']
 				}, {
 					'method': 'insert'
 				});
 			})
 			.then(function(savedRecord) {
 				response.status(200).json({
-					'organizationManagerGroupPermission': {
-						'id': savedRecord.get('id')
+					'data': {
+						'id': savedRecord.get('id'),
+						'type': 'organization-manager-group-permissions'
 					}
 				});
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': [{
 						'source': { 'pointer': 'data/attributes/id' },
@@ -488,8 +550,8 @@ var organizationManagerGroupsComponent = prime({
 			});
 		});
 
-		this.$router.get('/organizationManagerGroupPermissions/:groupPermissionId', function(request, response, next) {
-			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+		this.$router.get('/organization-manager-group-permissions/:groupPermissionId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
 			var groupPermission = null;
@@ -510,18 +572,36 @@ var organizationManagerGroupsComponent = prime({
 				}
 
 				var responseData = {
-					'id': groupPermission.get('id'),
-					'group': groupPermission.get('group_id'),
-					'permission': groupPermission.get('component_permission_id'),
-					'createdOn': groupPermission.get('created_on')
+					'data': {
+						'id': groupPermission.get('id'),
+						'type': 'organization-manager-group-permissions',
+
+						'attributes': {
+							'created-on': groupPermission.get('created_on')
+						},
+
+						'relationships': {
+							'group': {
+								'data': {
+									'id': groupPermission.get('group_id'),
+									'type': 'organization-manager-groups'
+								}
+							},
+
+							'permission': {
+								'data': {
+									'id':groupPermission.get('component_permission_id'),
+									'type': 'organization-manager-component-permissions'
+								}
+							}
+						}
+					}
 				};
 
-				response.status(200).json({
-					'organizationManagerGroupPermission': responseData
-				});
+				response.status(200).json(responseData);
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': [{
 						'source': { 'pointer': 'data/attributes/id' },
@@ -531,15 +611,14 @@ var organizationManagerGroupsComponent = prime({
 			});
 		});
 
-		this.$router.delete('/organizationManagerGroupPermissions/:groupPermissionId', function(request, response, next) {
-			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+		this.$router.delete('/organization-manager-group-permissions/:groupPermissionId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
 			new self.$GroupComponentPermissionModel({ 'id': request.params.groupPermissionId })
 			.fetch()
 			.then(function(groupPerm) {
-				groupPermission = groupPerm;
-				return new self.$GroupModel({ 'id': groupPermission.get('group_id') }).fetch();
+				return new self.$GroupModel({ 'id': groupPerm.get('group_id') }).fetch();
 			})
 			.then(function(group) {
 				return self._checkPermissionAsync(request, requiredPermission, group.get('tenant_id'));
@@ -553,10 +632,10 @@ var organizationManagerGroupsComponent = prime({
 				return new self.$GroupComponentPermissionModel({ 'id': request.params.groupPermissionId }).destroy();
 			})
 			.then(function(groupPermission) {
-				response.status(200).json({});
+				response.status(204).json({});
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': [{
 						'source': { 'pointer': 'data/attributes/id' },
@@ -566,8 +645,8 @@ var organizationManagerGroupsComponent = prime({
 			});
 		});
 
-		this.$router.get('/organizationManagerComponentPermissions/:componentPermissionId', function(request, response, next) {
-			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+		this.$router.get('/organization-manager-component-permissions/:componentPermissionId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
 			new self.$ComponentPermissionModel({ 'id': request.params.componentPermissionId })
@@ -576,18 +655,22 @@ var organizationManagerGroupsComponent = prime({
 				componentPermission = self._camelize(componentPermission.toJSON());
 
 				var responseData = {
-					'id': request.params.componentPermissionId,
-					'componentName': componentPermission.component.displayName,
-					'displayName': componentPermission.displayName,
-					'description': componentPermission.description
+					'data': {
+						'id': request.params.componentPermissionId,
+						'type': 'organization-manager-component-permissions',
+
+						'attributes': {
+							'component-name': componentPermission.component.displayName,
+							'display-name': componentPermission.displayName,
+							'description': componentPermission.description
+						}
+					}
 				};
 
-				response.status(200).json({
-					'organizationManagerComponentPermission': responseData
-				});
+				response.status(200).json(responseData);
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': [{
 						'source': { 'pointer': 'data/attributes/id' },
@@ -597,11 +680,11 @@ var organizationManagerGroupsComponent = prime({
 			});
 		});
 
-		this.$router.post('/organizationManagerGroupUsers', function(request, response, next) {
-			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+		this.$router.post('/organization-manager-group-users', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
-			new self.$GroupModel({ 'id': request.body.organizationManagerGroupUser.group })
+			new self.$GroupModel({ 'id': request.body.data.relationships.group.data.id })
 			.fetch()
 			.then(function(group) {
 				return self._checkPermissionAsync(request, requiredPermission, group.get('tenant_id'));
@@ -614,23 +697,24 @@ var organizationManagerGroupsComponent = prime({
 
 				return new self.$GroupUserModel()
 				.save({
-					'id': request.body.organizationManagerGroupUser.id,
-					'user_id': request.body.organizationManagerGroupUser.user,
-					'group_id': request.body.organizationManagerGroupUser.group,
-					'created_on': request.body.organizationManagerGroupUser.createdOn
+					'id': request.body.data.id,
+					'user_id': request.body.data.relationships.user.data.id,
+					'group_id': request.body.data.relationships.group.data.id,
+					'created_on': request.body.data.attributes['created-on']
 				}, {
 					'method': 'insert'
 				})
 			})
 			.then(function(savedRecord) {
 				response.status(200).json({
-					'organizationManagerGroupUser': {
-						'id': savedRecord.get('id')
+					'data': {
+						'id': savedRecord.get('id'),
+						'type': 'organization-manager-group-users'
 					}
 				});
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': [{
 						'source': { 'pointer': 'data/attributes/id' },
@@ -640,8 +724,8 @@ var organizationManagerGroupsComponent = prime({
 			});
 		});
 
-		this.$router.get('/organizationManagerGroupUsers/:groupUserId', function(request, response, next) {
-			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+		this.$router.get('/organization-manager-group-users/:groupUserId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
 			var groupUser = null;
@@ -663,18 +747,34 @@ var organizationManagerGroupsComponent = prime({
 				}
 
 				response.status(200).json({
-					'organizationManagerGroupUser': {
+					'data': {
 						'id': groupUser.id,
+						'type': 'organization-manager-group-users',
 
-						'group': groupUser.groupId,
-						'user': groupUser.userId,
+						'attributes': {
+							'created-on': groupUser.createdOn
+						},
 
-						'createdOn': groupUser.createdOn
+						'relationships': {
+							'group': {
+								'data': {
+									'id': groupUser.groupId,
+									'type': 'organization-manager-groups'
+								}
+							},
+
+							'user': {
+								'data': {
+									'id': groupUser.userId,
+									'type': 'organization-manager-users'
+								}
+							},
+						}
 					}
 				});
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': [{
 						'source': { 'pointer': 'data/attributes/id' },
@@ -684,16 +784,14 @@ var organizationManagerGroupsComponent = prime({
 			});
 		});
 
-		this.$router.delete('/organizationManagerGroupUsers/:groupUserId', function(request, response, next) {
-			self.$dependencies.logger.debug('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+		this.$router.delete('/organization-manager-group-users/:groupUserId', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
 			new self.$GroupUserModel({ 'id': request.params.groupUserId })
 			.fetch()
-			.then(function(grUser) {
-				groupUser = self._camelize(grUser.toJSON());
-
-				return new self.$GroupModel({ 'id': groupUser.groupId }).fetch();
+			.then(function(groupUser) {
+				return new self.$GroupModel({ 'id': groupUser.get('group_id') }).fetch();
 			})
 			.then(function(group) {
 				return self._checkPermissionAsync(request, requiredPermission, group.get('tenant_id'));
@@ -707,10 +805,10 @@ var organizationManagerGroupsComponent = prime({
 				return new self.$GroupUserModel({ 'id': request.params.groupUserId }).destroy();
 			})
 			.then(function() {
-				response.status(200).json({});
+				response.status(204).json({});
 			})
 			.catch(function(err) {
-				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
 				response.status(422).json({
 					'errors': [{
 						'source': { 'pointer': 'data/attributes/id' },

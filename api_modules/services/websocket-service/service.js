@@ -94,7 +94,6 @@ var websocketService = prime({
 	},
 
 	'_authorizeWebsocketConnection': function(request, done) {
-		this.$dependencies.logger.debug('Websocket Server _authorizeWebsocketConnection:\nSession: ', request.session);
 		done();
 	},
 
@@ -113,14 +112,14 @@ var websocketService = prime({
 	},
 
 	'_websocketServerConnection': function(spark) {
-		this.$dependencies.logger.debug('Websocket Server Connection:\nAddress: ', spark.address, '\nUser: ', spark.request.session.passport.user);
+		this.$dependencies.logger.debug('Websocket Server Connection:\nAddress: ', spark.address, '\nUser: ', (spark.request.session.passport ? spark.request.session.passport.user : 'public'));
 		this.$dependencies.eventService.emit('websocket-connect', spark);
 
 		spark.write({ 'channel': 'display-status-message', 'data': 'Welcome to ' + this.$module.$config.title });
 	},
 
 	'_websocketServerDisconnection': function(spark) {
-		this.$dependencies.logger.debug('Websocket Server Disconnection:\nAddress: ', spark.address, '\nUser: ', spark.request.session.passport.user);
+		this.$dependencies.logger.debug('Websocket Server Disconnection:\nAddress: ', spark.address, '\nUser: ', (spark.request.session.passport ? spark.request.session.passport.user : 'public'));
 		this.$dependencies.eventService.emit('websocket-disconnect', spark);
 
 		spark.removeAllListeners();
