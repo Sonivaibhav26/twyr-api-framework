@@ -257,9 +257,13 @@ var loginComponent = prime({
 
 				return self.$module.$utilities.restCall(self.$config.randomServer.protocol, randomRequestData);
 			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error fetching Random Password ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				if(err.code == 500403) throw err;
+			})
 			.then(function(randomPassword) {
 				randomPassword = (randomPassword ? JSON.parse(randomPassword) : null);
-				newPassword = (randomPassword ? randomPassword.result.random.data[0] : null);
+				newPassword = (randomPassword ? randomPassword.result.random.data[0] : self._generateRandomPassword());
 
 				return new self.$UserModel({
 					'salutation': (request.body.salutation && (request.body.salutation.trim() == '')) ? null : request.body.salutation,
@@ -355,6 +359,13 @@ var loginComponent = prime({
 				}
 			});
 		}))(request, response, next);
+	},
+
+	'_generateRandomPassword': function() {
+		return 'xxxxxxxx'.replace(/[x]/g, function(c) {
+			var r = Math.random()*16|0, v = c == 'x' ? r : (r&0x3|0x8);
+			return v.toString(16);
+		});
 	},
 
 	'name': 'login',

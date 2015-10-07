@@ -122,7 +122,7 @@ var organizationManagerLocationsComponent = prime({
 
 						'attributes': {
 							'name': thisTenantLocation.name,
-							'createdOn': thisTenantLocation.createdOn
+							'created-on': thisTenantLocation.createdOn
 						},
 
 						'relationships': {

@@ -178,6 +178,8 @@ exports.strategy = (function() {
 						reorgedWidgets = {};
 
 					thisUserTenantWidgets.forEach(function(thisWidget) {
+						if(!thisWidget.position_name) return;
+
 						if(!reorgedWidgets[thisWidget.position_name])
 							reorgedWidgets[thisWidget.position_name] = [];
 

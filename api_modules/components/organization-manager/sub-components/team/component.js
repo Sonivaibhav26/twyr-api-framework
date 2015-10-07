@@ -120,6 +120,10 @@ var organizationManagerTeamComponent = prime({
 						'id': thisTenantUser.id,
 						'type': 'organization-manager-team',
 
+						'attributes': {
+							'created-on': thisTenantUser.createdOn
+						},
+
 						'relationships': {
 							'tenant': {
 								'data': {

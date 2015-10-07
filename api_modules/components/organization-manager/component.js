@@ -224,12 +224,10 @@ var organizationManagerComponent = prime({
 			self.$dependencies.logger.silly('Servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 			response.type('application/json');
 
+			var fullAccess = false;
 			self._checkPermissionAsync(request, requiredPermission, request.params.tenantId)
 			.then(function(isAllowed) {
-				if(!isAllowed) {
-					throw({ 'code': 403, 'message': 'Unauthorized access!' });
-					return;
-				}
+				fullAccess = isAllowed;
 
 				return new self.$TenantModel({
 					'id': request.params.tenantId
@@ -275,11 +273,13 @@ var organizationManagerComponent = prime({
 					}
 				};
 
-				for(var idx in tenant.suborganizations) {
-					responseData.data.relationships.suborganizations.data.push({
-						'id': tenant.suborganizations[idx].id,
-						'type': 'organization-managers'
-					});
+				if(fullAccess) {
+					for(var idx in tenant.suborganizations) {
+						responseData.data.relationships.suborganizations.data.push({
+							'id': tenant.suborganizations[idx].id,
+							'type': 'organization-managers'
+						});
+					}
 				}
 
 				response.status(200).json(responseData);
@@ -371,7 +371,7 @@ var organizationManagerComponent = prime({
 			.then(function(userRecord) {
 				if(userRecord) {
 					throw({
-						'number': 403,
+						'number': 500403,
 						'message': 'Username already exists! Please try with a different email id'
 					});
 				}
@@ -397,7 +397,7 @@ var organizationManagerComponent = prime({
 			})
 			.then(function(emailExists) {
 				if(!emailExists) {
-					throw { 'code': 403, 'message': 'Invalid Email Id (' + ((request.body.data.attributes.login && (request.body.data.attributes.login.trim() == '')) ? '' : request.body.data.attributes.login) + ')' };
+					throw { 'code': 500403, 'message': 'Invalid Email Id (' + ((request.body.data.attributes.login && (request.body.data.attributes.login.trim() == '')) ? '' : request.body.data.attributes.login) + ')' };
 					return;
 				}
 
@@ -407,9 +407,13 @@ var organizationManagerComponent = prime({
 
 				return self.$module.$utilities.restCall(self.$config.randomServer.protocol, randomRequestData);
 			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error fetching Random Password ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				if(err.code == 500403) throw err;
+			})
 			.then(function(randomPassword) {
 				randomPassword = (randomPassword ? JSON.parse(randomPassword) : null);
-				newPassword = (randomPassword ? randomPassword.result.random.data[0] : null);
+				newPassword = (randomPassword ? randomPassword.result.random.data[0] : self._generateRandomPassword());
 
 				return new self.$UserModel({
 					'id': request.body.data.id,
@@ -444,7 +448,7 @@ var organizationManagerComponent = prime({
 				var notificationOptions = JSON.parse(JSON.stringify(self.$config.notificationServer.options));
 				notificationOptions.path = self.$config.notificationServer.newAccountPath;
 				notificationOptions.data = JSON.stringify({
-					'username': request.body.username,
+					'username': request.body.data.attributes.login,
 					'password': newPassword
 				});
 
@@ -493,6 +497,13 @@ var organizationManagerComponent = prime({
 					}]
 				});
 			});
+		});
+	},
+
+	'_generateRandomPassword': function() {
+		return 'xxxxxxxx'.replace(/[x]/g, function(c) {
+			var r = Math.random()*16|0, v = c == 'x' ? r : (r&0x3|0x8);
+			return v.toString(16);
 		});
 	},
 

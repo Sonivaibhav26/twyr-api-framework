@@ -34,7 +34,7 @@ exports.utility = {
 		}
 
 		// Here is the meat and potatoes for executing the request
-		logger.debug('Executing Request: ', JSON.stringify(options));
+		logger.debug('restCall::Executing Request: ', options);
 		var request = protocol.request(options, function(response) {
 			var data = null;
 
@@ -56,6 +56,8 @@ exports.utility = {
 						'path': options.path,
 						'message': statusCodes[response.statusCode]
 					}
+
+					logger.error('restCall::StatusCodeError:\nURL: ', options.path, '\nError:', errorObj);
 				}
 
 				if (callback) callback(errorObj, data);
@@ -63,7 +65,7 @@ exports.utility = {
 		});
 
 		request.on('error', function(err) {
-			logger.error('On Error: ', options.path, err);
+			logger.error('restCall::RequestError:\nURL: ', options.path, '\nError:', err);
 			if (callback) callback(err, null);
 		});
 
