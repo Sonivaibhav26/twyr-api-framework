@@ -167,43 +167,25 @@ var organizationManagerGroupsComponent = prime({
 
 				return new self.$GroupModel()
 				.query(function(qb) {
+					qb.where('tenant_id', '=', request.query.tenant);
 					if(request.query.group == '#')
-						qb.where('tenant_id', '=', request.query.tenant);
+						qb.whereNull('parent_id');
 					else
-						qb
-						.where('tenant_id', '=', request.query.tenant)
-						.andWhere('parent_id', '=', request.query.group);
+						qb.andWhere('parent_id', '=', request.query.group);
 				})
 				.fetchAll({ 'withRelated': ['subgroups'] });
 			})
 			.then(function(tenantGroups) {
 				tenantGroups = self._camelize(tenantGroups.toJSON());
-				self.$dependencies.logger.debug('Tenant Groups: ', JSON.stringify(tenantGroups));
 
 				var responseData = [];
+				for(var idx in tenantGroups) {
+					var responseGroup = {};
+					responseGroup.id = tenantGroups[idx].id;
+					responseGroup.text = tenantGroups[idx].displayName;
+					responseGroup.children = !!(tenantGroups[idx].subgroups[0]);
 
-				if(request.query.group == '#') {
-					for(var idx in tenantGroups) {
-						if(tenantGroups[idx].parentId)
-							continue;
-
-						var responseGroup = {};
-						responseGroup.id = tenantGroups[idx].id;
-						responseGroup.text = tenantGroups[idx].displayName;
-						responseGroup.children = !!(tenantGroups[idx].subgroups[0]);
-
-						responseData.push(responseGroup);
-					}
-				}
-				else {
-					for(var idx in tenantGroups) {
-						var responseGroup = {};
-						responseGroup.id = tenantGroups[idx].id;
-						responseGroup.text = tenantGroups[idx].displayName;
-						responseGroup.children = !!(tenantGroups[idx].subgroups[0]);
-
-						responseData.push(responseGroup);
-					}
+					responseData.push(responseGroup);
 				}
 
 				response.status(200).json(responseData);
@@ -233,7 +215,7 @@ var organizationManagerGroupsComponent = prime({
 				tenantGroups = self._camelize(tenantGroups.toJSON());
 
 				var responseData = {
-					'data':[]	
+					'data':[]
 				};
 
 				for(var idx in tenantGroups) {
@@ -243,7 +225,7 @@ var organizationManagerGroupsComponent = prime({
 							'type': 'organization-manager-groups',
 							'attributes': {
 								'name': thisTenantGroup.displayName,
-								'created-on': thisTenantGroup.createdOn								
+								'created-on': thisTenantGroup.createdOn
 							},
 
 							'relationships': {
@@ -253,7 +235,7 @@ var organizationManagerGroupsComponent = prime({
 										'type': 'organization-manager'
 									}
 								},
-	
+
 								'parent': {
 									'data': {
 										'id': thisTenantGroup.parentId,
@@ -273,14 +255,14 @@ var organizationManagerGroupsComponent = prime({
 							'type': 'organization-manager-groups'
 						});
 					}
-	
+
 					for(var pdx in thisTenantGroup.permissions) {
 						groupResponse.relationships.permissions.data.push({
 							'id': thisTenantGroup.permissions[pdx].id,
 							'type': 'organization-manager-group-permissions'
 						});
 					}
-	
+
 					for(var udx in thisTenantGroup.users) {
 						groupResponse.relationships.users.data.push({
 							'id': thisTenantGroup.users[udx].id,
@@ -375,7 +357,7 @@ var organizationManagerGroupsComponent = prime({
 
 						'attributes': {
 							'name': tenantGroup.displayName,
-							'created-on': tenantGroup.createdOn							
+							'created-on': tenantGroup.createdOn
 						},
 
 						'relationships': {

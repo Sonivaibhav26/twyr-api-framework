@@ -47,15 +47,58 @@ var organizationManagerTeamComponent = prime({
 
 			var database = self.$dependencies.databaseService;
 
-
 			Object.defineProperty(self, '$TenantModel', {
 				'__proto__': null,
 				'value': database.Model.extend({
 					'tableName': 'tenants',
 					'idAttribute': 'id',
 
+					'groups': function() {
+						return this.hasMany(self.$GroupModel, 'tenant_id');
+					},
+
 					'users': function() {
 						return this.hasMany(self.$UserTenantModel, 'tenant_id');
+					}
+				})
+			});
+
+			Object.defineProperty(self, '$GroupModel', {
+				'__proto__': null,
+				'value': database.Model.extend({
+					'tableName': 'groups',
+					'idAttribute': 'id',
+
+					'tenant': function() {
+						return this.belongsTo(self.$TenantModel, 'tenant_id');
+					},
+
+					'parent': function() {
+						return this.belongsTo(self.$GroupModel, 'parent_id');
+					},
+
+					'subgroups': function() {
+						return this.hasMany(self.$GroupModel, 'parent_id');
+					},
+
+					'users': function() {
+						return this.hasMany(self.$UserGroupModel, 'group_id');
+					}
+				})
+			});
+
+			Object.defineProperty(self, '$UserModel', {
+				'__proto__': null,
+				'value': database.Model.extend({
+					'tableName': 'users',
+					'idAttribute': 'id',
+
+					'tenants': function() {
+						return this.hasMany(self.$UserTenantModel, 'user_id');
+					},
+
+					'groups': function() {
+						return this.hasMany(self.$UserGroupModel, 'user_id');
 					}
 				})
 			});
@@ -76,14 +119,18 @@ var organizationManagerTeamComponent = prime({
 				})
 			});
 
-			Object.defineProperty(self, '$UserModel', {
+			Object.defineProperty(self, '$UserGroupModel', {
 				'__proto__': null,
 				'value': database.Model.extend({
-					'tableName': 'users',
+					'tableName': 'users_groups',
 					'idAttribute': 'id',
 
-					'tenants': function() {
-						return this.hasMany(self.$UserTenantModel, 'user_id');
+					'group': function() {
+						return this.belongsTo(self.$GroupModel, 'group_id');
+					},
+
+					'user': function() {
+						return this.belongsTo(self.$UserModel, 'user_id');
 					}
 				})
 			});
@@ -94,6 +141,92 @@ var organizationManagerTeamComponent = prime({
 
 	'_addRoutes': function() {
 		var self = this;
+
+		this.$router.get('/organization-manager-team-unused-groups-tree', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			self._checkPermissionAsync(request, requiredPermission, request.query.tenant)
+			.then(function(isAllowed) {
+				if(!isAllowed) {
+					throw({ 'code': 403, 'message': 'Unauthorized access!' });
+					return;
+				}
+
+				return new self.$GroupModel()
+				.query(function(qb) {
+					qb.where('tenant_id', '=', request.query.tenant);
+					if(request.query.group == '#')
+						qb.whereNull('parent_id');
+					else
+						qb.andWhere('parent_id', '=', request.query.group);
+
+					qb.andWhereRaw('id NOT IN (SELECT group_id FROM users_groups WHERE user_id = \'' + request.query.user + '\')');
+				})
+				.fetchAll({ 'withRelated': ['subgroups'] });
+			})
+			.then(function(tenantGroups) {
+				tenantGroups = self._camelize(tenantGroups.toJSON());
+
+				var responseData = [];
+				for(var idx in tenantGroups) {
+					var responseGroup = {};
+					responseGroup.id = tenantGroups[idx].id;
+					responseGroup.text = tenantGroups[idx].displayName;
+					responseGroup.children = !!(tenantGroups[idx].subgroups[0]);
+
+					responseData.push(responseGroup);
+				}
+
+				response.status(200).json(responseData);
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(err.code || err.number || 500).json(err);
+			});
+		});
+
+		this.$router.get('/organization-manager-team-used-groups-tree', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			self._checkPermissionAsync(request, requiredPermission, request.query.tenant)
+			.then(function(isAllowed) {
+				if(!isAllowed) {
+					throw({ 'code': 403, 'message': 'Unauthorized access!' });
+					return;
+				}
+
+				return new self.$GroupModel()
+				.query(function(qb) {
+					qb.where('tenant_id', '=', request.query.tenant);
+					if(request.query.group == '#')
+						qb.andWhereRaw('id IN (SELECT group_id FROM users_groups WHERE user_id = \'' + request.query.user + '\')');
+					else
+						qb.andWhere('parent_id', '=', request.query.group);
+				})
+				.fetchAll({ 'withRelated': ['subgroups'] });
+			})
+			.then(function(tenantGroups) {
+				tenantGroups = self._camelize(tenantGroups.toJSON());
+
+				var responseData = [];
+				for(var idx in tenantGroups) {
+					var responseGroup = {};
+					responseGroup.id = tenantGroups[idx].id;
+					responseGroup.text = tenantGroups[idx].displayName;
+					responseGroup.children = !!(tenantGroups[idx].subgroups[0]);
+
+					responseData.push(responseGroup);
+				}
+
+				response.status(200).json(responseData);
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(err.code || err.number || 500).json(err);
+			});
+		});
 
 		this.$router.get('/organization-manager-teams', function(request, response, next) {
 			self.$dependencies.logger.silly('Servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
@@ -223,6 +356,64 @@ var organizationManagerTeamComponent = prime({
 						'detail': err.detail || err.message
 					}]
 				});
+			});
+		});
+
+		this.$router.post('/organization-manager-team-add-user-group', function(request, response, next) {
+			self.$dependencies.logger.debug('Servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			self._checkPermissionAsync(request, requiredPermission, request.body.tenant)
+			.then(function(isAllowed) {
+				if(!isAllowed) {
+					throw({ 'code': 403, 'message': 'Unauthorized access!' });
+					return;
+				}
+
+				return new self.$UserGroupModel()
+				.save({
+					'user_id': request.body.user,
+					'group_id': request.body.group
+				}, {
+					'method': 'insert'
+				});
+			})
+			.then(function(savedRecord) {
+				response.status(200).json({ 'id': savedRecord.get('id') });
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(err.code || err.number || 500).json(err);
+			});
+		});
+
+		this.$router.post('/organization-manager-team-delete-user-group', function(request, response, next) {
+			self.$dependencies.logger.debug('Servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/json');
+
+			self._checkPermissionAsync(request, requiredPermission, request.body.tenant)
+			.then(function(isAllowed) {
+				if(!isAllowed) {
+					throw({ 'code': 403, 'message': 'Unauthorized access!' });
+				}
+
+				return new self.$UserGroupModel()
+				.query(function(qb) {
+					qb.where('user_id', '=', request.body.user);
+					qb.andWhere('group_id', '=', request.body.group);
+				})
+				.fetch();
+			})
+			.then(function(existingUserGroup) {
+				if(!existingUserGroup) return;
+				return existingUserGroup.destroy();
+			})
+			.then(function() {
+				response.status(200).json({});
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(err.code || err.number || 500).json(err);
 			});
 		});
 	},
