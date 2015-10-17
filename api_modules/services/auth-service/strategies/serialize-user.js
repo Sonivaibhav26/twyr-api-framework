@@ -37,12 +37,12 @@ exports.strategy = (function() {
 			return this.hasMany(UserSocialLogins, 'user_id');
 		}
 	});
-	
+
 	auth.serializeUser(function(user, done) {
 		var cacheMulti = promises.promisifyAll(cache.multi());
 		cacheMulti.setAsync('twyr!portal!user!' + user.id, JSON.stringify(user));
 		cacheMulti.expireAsync('twyr!portal!user!' + user.id, self.$module.$config.session.ttl);
-	
+
 		cacheMulti.execAsync()
 		.then(function(execStatus) {
 			done(null, user.id);
@@ -52,7 +52,7 @@ exports.strategy = (function() {
 			done(err);
 		});
 	});
-	
+
 	auth.deserializeUser(function(id, done) {
 		// Step 1: Check to see if the user is already in the cache
 		cache.getAsync('twyr!portal!user!' + id)
@@ -74,10 +74,10 @@ exports.strategy = (function() {
 					throw({ 'message': 'User "' + id + '" not found' });
 					return;
 				}
-		
+
 				deserializedUser = user.toJSON();
 				delete deserializedUser.password;
-	
+
 				user.set('last_login', (new Date()).toISOString());
 				return user.save();
 			})
@@ -106,7 +106,7 @@ exports.strategy = (function() {
 
 				permissions = permissions.rows;
 				deserializedUser.tenants = {};
-	
+
 				for(var idx in permissions) {
 					var thisTenantId = (permissions[idx]).tenant,
 						thisPermissionId = (permissions[idx]).permission;
@@ -123,13 +123,13 @@ exports.strategy = (function() {
 					if(thisUserTenant.permissions.indexOf(thisPermissionId) < 0) {
 						thisUserTenant.permissions.push(thisPermissionId);
 					}
-						
+
 					if(usedPermissions.indexOf(thisPermissionId) < 0) {
 						usedPermissions.push(thisPermissionId);
 						promiseResolutions.push(database.knex.raw('SELECT * FROM fn_get_component_menus(\'' + thisPermissionId + '\', 10);'));
 					}
 				}
-		
+
 				promiseResolutions.push(usedPermissions);
 				return promises.all(promiseResolutions);
 			})
@@ -150,7 +150,7 @@ exports.strategy = (function() {
 
 					promiseResolutions.push(database.knex.raw('SELECT * FROM fn_get_component_widgets(\'' + thisPermissionId + '\');'));
 				});
-		
+
 				promiseResolutions.push(usedPermissions);
 				return promises.all(promiseResolutions);
 			})
@@ -197,10 +197,10 @@ exports.strategy = (function() {
 
 					Object.keys(reorgedWidgets).forEach(function(position) {
 						var widgetsInThisPosition = reorgedWidgets[position];
-						
+
 						widgetsInThisPosition.sort(function(left, right) {
 							var retVal = left.display_order - right.display_order;
-							
+
 							delete left.position_name;
 							delete left.display_order;
 
@@ -214,7 +214,7 @@ exports.strategy = (function() {
 					(deserializedUser.tenants[thisTenantId]).widgets = reorgedWidgets;
 				});
 
-				// Re-organize menus according to Tenant, and parent/child menu hierarchy 
+				// Re-organize menus according to Tenant, and parent/child menu hierarchy
 				Object.keys(deserializedUser.tenants).forEach(function(thisTenantId) {
 					var thisUserTenantMenus = (deserializedUser.tenants[thisTenantId]).menus,
 						reorgedMenus = [];
@@ -224,7 +224,9 @@ exports.strategy = (function() {
 							if(!thisMenu.parent_id) {
 								reorgedMenus.push({
 									'id': thisMenu.id,
+									'icon_class': thisMenu.icon_class,
 									'display_name': thisMenu.display_name,
+									'tooltip': thisMenu.tooltip,
 									'ember_route': thisMenu.ember_route,
 									'subRoutes': []
 								});
@@ -237,12 +239,13 @@ exports.strategy = (function() {
 
 								parentMenu.subRoutes.push({
 									'id': thisMenu.id,
+									'icon_class': thisMenu.icon_class,
 									'display_name': thisMenu.display_name,
+									'tooltip': thisMenu.tooltip,
 									'ember_route': thisMenu.ember_route
 								});
 
 								reorgedMenus.push(parentMenu);
-								
 							}
 						}
 						else {
@@ -251,14 +254,16 @@ exports.strategy = (function() {
 									if(item.id == thisMenu.id) {
 										return true;
 									}
-	
+
 									return false;
 								});
-	
+
 								if(!existingMenus.length) {
 									reorgedMenus.push({
 										'id': thisMenu.id,
+										'icon_class': thisMenu.icon_class,
 										'display_name': thisMenu.display_name,
+										'tooltip': thisMenu.tooltip,
 										'ember_route': thisMenu.ember_route,
 										'subRoutes': []
 									});
@@ -283,7 +288,7 @@ exports.strategy = (function() {
 										'id': thisMenu.parent_id,
 										'subRoutes': []
 									};
-		
+
 									reorgedMenus.push(parentMenu);
 								}
 								else {
@@ -295,14 +300,16 @@ exports.strategy = (function() {
 										if(item.id == thisMenu.id) {
 											return true;
 										}
-	
+
 										return false;
 									});
-	
+
 									if(!existingSubMenus.length) {
 										parentMenu.subRoutes.push({
 											'id': thisMenu.id,
+											'icon_class': thisMenu.icon_class,
 											'display_name': thisMenu.display_name,
+											'tooltip': thisMenu.tooltip,
 											'ember_route': thisMenu.ember_route
 										});
 									}
@@ -312,6 +319,7 @@ exports.strategy = (function() {
 										'id': thisMenu.id,
 										'icon_class': thisMenu.icon_class,
 										'display_name': thisMenu.display_name,
+										'tooltip': thisMenu.tooltip,
 										'ember_route': thisMenu.ember_route
 									});
 								}
