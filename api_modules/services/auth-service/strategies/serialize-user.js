@@ -40,8 +40,8 @@ exports.strategy = (function() {
 
 	auth.serializeUser(function(user, done) {
 		var cacheMulti = promises.promisifyAll(cache.multi());
-		cacheMulti.setAsync('eronkan!portal!user!' + user.id, JSON.stringify(user));
-		cacheMulti.expireAsync('eronkan!portal!user!' + user.id, self.$module.$config.session.ttl);
+		cacheMulti.setAsync('twyr!portal!user!' + user.id, JSON.stringify(user));
+		cacheMulti.expireAsync('twyr!portal!user!' + user.id, self.$module.$config.session.ttl);
 
 		cacheMulti.execAsync()
 		.then(function(execStatus) {
@@ -55,7 +55,7 @@ exports.strategy = (function() {
 
 	auth.deserializeUser(function(id, done) {
 		// Step 1: Check to see if the user is already in the cache
-		cache.getAsync('eronkan!portal!user!' + id)
+		cache.getAsync('twyr!portal!user!' + id)
 		.then(function(cachedData) {
 			// If the user is in the cache already, simply return it
 			cachedData = JSON.parse(cachedData);
@@ -339,8 +339,8 @@ exports.strategy = (function() {
 			// Step 8: Store User data in the cache for quick retrieval next time
 			.then(function() {
 				var cacheMulti = promises.promisifyAll(cache.multi());
-				cacheMulti.setAsync('eronkan!portal!user!' + deserializedUser.id, JSON.stringify(deserializedUser));
-				cacheMulti.expireAsync('eronkan!portal!user!' + deserializedUser.id, self.$module.$config.session.ttl);
+				cacheMulti.setAsync('twyr!portal!user!' + deserializedUser.id, JSON.stringify(deserializedUser));
+				cacheMulti.expireAsync('twyr!portal!user!' + deserializedUser.id, self.$module.$config.session.ttl);
 
 				return cacheMulti.execAsync();
 			})
