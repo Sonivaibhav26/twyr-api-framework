@@ -203,6 +203,35 @@ var masterdataComponent = prime({
 				response.status(422).json({ 'code': 422, 'message': err.message || err.detail || 'Error fetching genders from the database' });
 			});
 		});
+
+		this.$router.get('/homepages', function(request, response, next) {
+			self.$dependencies.logger.silly('Servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
+			response.type('application/javascript');
+
+			if(!request.user) {
+				response.status(200).send('');
+				return;
+			}
+
+			self.$dependencies.databaseService.knex.raw('SELECT id, display_name FROM component_menus WHERE permission_id = \'ffffffff-ffff-ffff-ffff-fffffffffff0\' AND ember_route IS NOT NULL;')
+			.then(function(availableHomes) {
+				var responseData = [];
+
+				for(var idx in availableHomes.rows) {
+					var thisHomePage = availableHomes.rows[idx];
+					responseData.push({
+						'id': thisHomePage.id,
+						'text': thisHomePage.display_name
+					});
+				}
+
+				response.status(200).json(responseData);
+			})
+			.catch(function(err) {
+				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
+				response.status(422).json({ 'code': 422, 'message': err.message || err.detail || 'Error fetching homepages from the database' });
+			});
+		});
 	},
 
 	'name': 'masterdata',
