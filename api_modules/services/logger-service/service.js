@@ -31,26 +31,16 @@ var loggerService = prime({
 		this._loadConfig(path.join(__dirname, 'config.js'));
 	},
 
-	'load': function(module, loader, callback) {
+	'start': function(dependencies, callback) {
 		var self = this;
-		loggerService.parent.load.call(self, module, loader, function(err, status) {
+
+		loggerService.parent.initialize.call(self, function(err, status) {
 			if(err) {
 				callback(err);
 				return;
 			}
 
 			self['$winston'] = require('winston');
-			callback(null, status);
-		});
-	},
-
-	'initialize': function(callback) {
-		var self = this;
-		loggerService.parent.initialize.call(self, function(err, status) {
-			if(err) {
-				callback(err);
-				return;
-			}
 
 			// Determine the root folder of the application
 			var rootPath = path.dirname(require.main.filename);
@@ -58,15 +48,15 @@ var loggerService = prime({
 			// Add transports as we go along...
 			for(var transportIdx in self.$config) {
 				var thisTransport = self.$config[transportIdx];
-				
+
 				if(thisTransport.filename) {
 					var dirName = path.join(rootPath, path.dirname(thisTransport.filename)),
 						baseName = path.basename(thisTransport.filename, path.extname(thisTransport.filename));
-				
+
 					thisTransport.filename = path.resolve(path.join(dirName, baseName + '-' + self.$module.$uuid + path.extname(thisTransport.filename)));
 					console.log('Log File Path: ', thisTransport.filename);
 				}
-	
+
 				try {
 					if(self.$winston.transports[transportIdx])
 						self.$winston.remove(self.$winston.transports[transportIdx]);
@@ -74,7 +64,7 @@ var loggerService = prime({
 				catch(err) {
 					console.error('Error Removing ' + transportIdx + ' Transport from Winston: ', err.message);
 				}
-	
+
 				try {
 					if(self.$winston.transports[transportIdx]) {
 						console.log('Adding ' + transportIdx + ' Transport to the Winston instance');
@@ -88,10 +78,10 @@ var loggerService = prime({
 					console.error('Error Adding ' + transportIdx + ' Transport to Winston: ', err.message);
 				}
 			}
-			
+
 			// Ensure the logger isn't crashing the API Server :-)
 			self.$winston.emitErrs = false;
-			
+
 			// The first log of the day...
 			self.$winston.debug('Winston Logger successfully setup, and running...');
 			if(callback) callback(null, status);
@@ -102,9 +92,10 @@ var loggerService = prime({
 		return this.$winston;
 	},
 
-	'uninitialize': function(callback) {
+	'stop': function(callback) {
 		var self = this;
-		loggerService.parent.uninitialize.call(self, function(err, status) {
+
+		loggerService.parent.stop.call(self, function(err, status) {
 			if(err) {
 				callback(err);
 				return;
@@ -112,7 +103,7 @@ var loggerService = prime({
 
 			// The last log of the day...
 			self.$winston.debug('Goodbye, blue sky...');
-	
+
 			// Remove the transports so that it stops logging
 			for(var transportIdx in self.$config) {
 				try {
@@ -122,18 +113,6 @@ var loggerService = prime({
 				catch(err) {
 					console.error('Error Removing ' + transportIdx + ' from the Winston instance: ', err.message);
 				}
-			}
-	
-			if(callback) callback(null, status);
-		});
-	},
-
-	'unload': function(callback) {
-		var self = this;
-		loggerService.parent.unload.call(self, function(err, status) {
-			if(err) {
-				callback(err);
-				return;
 			}
 
 			delete self['$winston'];

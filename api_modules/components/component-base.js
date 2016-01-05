@@ -26,6 +26,13 @@ var Events = require('eventemitter3'),
 var simpleComponent = prime({
 	'constructor': function() {
 		console.log('Constructor of the ' + this.name + ' Component');
+
+		if(this.dependencies.indexOf('logger') < 0)
+			this.dependencies.push('logger');
+
+		if(this.dependencies.indexOf('databaseService') < 0)
+			this.dependencies.push('databaseService');
+
 		this._checkPermissionAsync = promises.promisify(this._checkPermission);
 	},
 
@@ -54,7 +61,7 @@ var simpleComponent = prime({
 			callback(null, true);
 		}
 	},
-	
+
 	'start': function(dependencies, callback) {
 		console.log('Starting the ' + this.name + ' Component with dependencies:\n', dependencies);
 		var self = this;
@@ -151,17 +158,17 @@ var simpleComponent = prime({
 		var router = require('express').Router(),
 			logger = require('morgan'),
 			loggerSrvc = this.$dependencies['logger'];
-	
+
 		var loggerStream = {
 			'write': function(message, encoding) {
 				loggerSrvc.silly(message);
 			}
 		};
-	
+
 		router.use(logger('combined', {
 			'stream': loggerStream
 		}));
-		
+
 		this['$router'] = router;
 	},
 
@@ -234,7 +241,7 @@ var simpleComponent = prime({
 			self = this;
 
 		if(!inputObject) return inputObject;
-		
+
 		Object.keys(inputObject)
 		.forEach(function(key) {
 			if(!inputObject[key]) {
