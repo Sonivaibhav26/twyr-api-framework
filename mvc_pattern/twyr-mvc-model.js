@@ -54,10 +54,11 @@ var mvcModel = prime({
 		.then(function(success) {
 			if(!success) {
 				throw ({ 'code': 403, 'message': 'Could not add proxy: ' + Proxy.prototype.name });
-				return;
+				return null;
 			}
 
 			callback(null, success);
+			return null;
 		})
 		.catch(function(err) {
 			self.$facade.$dependencies.logger.error('Error adding Proxy for ' + self.$facade.name + ': ' + Proxy.prototype.name + '\nError: ', err);
@@ -72,6 +73,7 @@ var mvcModel = prime({
 		self.$proxyMap.delAsync(proxyName)
 		.then(function() {
 			callback(null, true);
+			return null;
 		})
 		.catch(function(err) {
 			callback(err);
@@ -84,6 +86,7 @@ var mvcModel = prime({
 		self.$proxyMap.getAsync(proxyName)
 		.then(function(exists) {
 			callback(null, !!exists);
+			return null;
 		})
 		.catch(function(err) {
 			callback(err);
@@ -105,6 +108,7 @@ var mvcModel = prime({
 		})
 		.then(function(result) {
 			callback(null, result);
+			return null;
 		})
 		.catch(function(err) {
 			self.$facade.$dependencies.logger.error('Error getting Data for ' + self.$facade.name + ': ' + inputData.name + '\nError:', err);
@@ -120,7 +124,7 @@ var mvcModel = prime({
 		.then(function(proxy) {
 			if(!proxy) {
 				throw ({ 'code': 403, 'message': 'Proxy ' + inputData.name + ' not found' });
-				return;
+				return null;
 			}
 
 			return promises.all([proxy.name, proxy.setAsync(inputData)]);
@@ -131,6 +135,7 @@ var mvcModel = prime({
 
 			callback(null, setResult);
 			self.notify('twyr-mvc-model-data-change', proxyName);
+			return null;
 		})
 		.catch(function(err) {
 			self.$facade.$dependencies.logger.error('Error setting Data for ' + self.$facade.name + ': ' + inputData.name + '\nError:', err);

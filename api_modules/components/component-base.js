@@ -47,6 +47,8 @@ var simpleComponent = prime({
 		.then(function(status) {
 			if(!status) throw status;
 			if(callback) callback(null, status);
+
+			return null;
 		})
 		.catch(function(err) {
 			console.error(self.name + ' Component Load Error: ', err);
@@ -88,6 +90,7 @@ var simpleComponent = prime({
 		})
 		.then(function(status) {
 			if(callback) callback(null, status);
+			return null;
 		})
 		.catch(function(err) {
 			console.error(self.name + ' Component Start Error: ', err);
@@ -108,6 +111,8 @@ var simpleComponent = prime({
 		.then(function(status) {
 			if(!status) throw status;
 			if(callback) callback(null, status);
+
+			return null;
 		})
 		.catch(function(err) {
 			console.error(self.name + ' Component Stop Error: ', err);
@@ -116,6 +121,8 @@ var simpleComponent = prime({
 		.finally(function() {
 			delete self['$dependencies'];
 			delete self['$router'];
+
+			return null;
 		});
 	},
 
@@ -135,6 +142,8 @@ var simpleComponent = prime({
 		.then(function(status) {
 			if(!status) throw status;
 			if(callback) callback(null, status);
+
+			return null;
 		})
 		.catch(function(err) {
 			console.error(self.name + ' Service Unload Error: ', err);
@@ -143,6 +152,8 @@ var simpleComponent = prime({
 		.finally(function() {
 			delete self['$loader'];
 			delete self['$module'];
+
+			return null;
 		});
 	},
 
@@ -229,6 +240,8 @@ var simpleComponent = prime({
 
 			self.$dependencies.logger.silly('_checkPermission:\nUser: ', request.user.id, '\nPermission: ', permission, '\nTenant: ', tenantId, '\nAllowed: ', allowed);
 			callback(null, allowed);
+
+			return null;
 		})
 		.catch(function(err) {
 			self.$dependencies.logger.error('_checkPermission Error: ', err);

@@ -28,7 +28,7 @@ exports.socialAuthenticate = (function(request, profile, token, done) {
 		User = database.Model.extend({
 			'tableName': 'users',
 			'idAttribute': 'id',
-	
+
 			'social': function() {
 				return this.hasMany(UserSocialLogins, 'user_id');
 			}
@@ -39,7 +39,7 @@ exports.socialAuthenticate = (function(request, profile, token, done) {
 		UserSocialLogins = database.Model.extend({
 			'tableName': 'user_social_logins',
 			'idAttribute': 'id',
-	
+
 			'user': function() {
 				return this.belongsTo(User, 'user_id');
 			}
@@ -96,12 +96,15 @@ exports.socialAuthenticate = (function(request, profile, token, done) {
 				}
 
 				done(null, { 'id': userSocialLoginRecord.get('user_id'), 'first_name': profile.name.givenName, 'last_name': profile.name.familyName });
+				return null;
 			})
 			.catch(function(err) {
 				logger.error('socialAuthenticate Profile:\nData: ', profile, '\nError: ', JSON.stringify(err));
 				done(err);
 			});
 		}
+
+		return null;
 	})
 	.catch(function(err) {
 		logger.error('socialAuthenticate Profile:\nData: ', profile, '\nError: ', JSON.stringify(err));
@@ -118,7 +121,7 @@ exports.socialAuthorize = (function(request, profile, token, done) {
 		User = database.Model.extend({
 			'tableName': 'users',
 			'idAttribute': 'id',
-	
+
 			'social': function() {
 				return this.hasMany(UserSocialLogins, 'user_id');
 			}
@@ -129,13 +132,13 @@ exports.socialAuthorize = (function(request, profile, token, done) {
 		UserSocialLogins = database.Model.extend({
 			'tableName': 'user_social_logins',
 			'idAttribute': 'id',
-	
+
 			'user': function() {
 				return this.belongsTo(User, 'user_id');
 			}
 		});
 	}
-	
+
 	// Special handling for Twitter...
 	if(!profile.emails) {
 		profile.emails = [];
@@ -177,6 +180,7 @@ exports.socialAuthorize = (function(request, profile, token, done) {
 		};
 
 		done(null, request.user);
+		return null;
 	})
 	.catch(function(err) {
 		logger.error('socialAuthorize Profile:\nData: ', profile, '\nError: ', JSON.stringify(err));

@@ -43,7 +43,7 @@ var pubsubService = prime({
 			self['$publishConnection'] = promises.promisifyAll(redis.createClient(self.$config.port, self.$config.host, self.$config.options));
 			self.$publishConnection.on('connect', self._setConnection.bind(self, callback, status));
 			self.$publishConnection.on('error', self._errorConnection.bind(self, callback, status));
-	
+
 			self['$subscribeConnection'] = promises.promisifyAll(redis.createClient(self.$config.port, self.$config.host, self.$config.options));
 			self.$subscribeConnection.on('connect', self._setConnection.bind(self, callback, status));
 			self.$subscribeConnection.on('error', self._errorConnection.bind(self, callback, status));
@@ -64,7 +64,7 @@ var pubsubService = prime({
 				callback(err);
 				return;
 			}
-	
+
 			promises.all([self.$publishConnection.quitAsync(), self.$subscribeConnection.quitAsync()])
 			.then(function() {
 				self.$publishConnection.end();
@@ -74,6 +74,7 @@ var pubsubService = prime({
 				delete self['$publishConnection'];
 
 				if(callback) callback(null, status);
+				return null;
 			})
 			.catch(function(err) {
 				if(callback) callback(err);

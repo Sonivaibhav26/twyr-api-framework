@@ -26,7 +26,7 @@ exports.strategy = (function() {
 		'tableName': 'users',
 		'idAttribute': 'id'
 	});
-	
+
 	auth.use('twyr-local', new localStrategy({
 		'passReqToCallback': true
 	},
@@ -45,7 +45,7 @@ exports.strategy = (function() {
 			}
 			else {
 				throw({'message': 'Invalid Credentials - please try again'});
-				return;
+				return null;
 			}
 		})
 		.then(function(userRecord) {
@@ -54,6 +54,8 @@ exports.strategy = (function() {
 			var lastLogin = (new Date()).toISOString();
 			userRecord.set('last_login', lastLogin);
 			userRecord.save();
+
+			return null;
 		})
 		.catch(function(err) {
 			logger.error('Error logging in user: ', JSON.stringify(err));

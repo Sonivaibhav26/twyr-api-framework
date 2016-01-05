@@ -86,7 +86,7 @@ var loginComponent = prime({
 
 					return;
 				}
-				
+
 				if(!user) {
 					self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params);
 					response.status(404).json({
@@ -95,7 +95,7 @@ var loginComponent = prime({
 					});
 					return;
 				}
-				
+
 				request.login(user, function(loginErr) {
 					if(loginErr) {
 						self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', loginErr);
@@ -141,6 +141,8 @@ var loginComponent = prime({
 			.then(function() {
 				request.logout();
 				response.status(200).json({ 'status': !request.isAuthenticated() });
+
+				return null;
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
@@ -185,6 +187,8 @@ var loginComponent = prime({
 					'status': true,
 					'responseText': 'Reset Password Successful! Please check your email for details'
 				});
+
+				return null;
 			})
 			.catch(function(err) {
 				response.status(err.code || err.number || 500).json({
@@ -206,6 +210,7 @@ var loginComponent = prime({
 			})
 			.then(function(notificationResponse) {
 				self.$dependencies.logger.debug('Response from Notificaton Server: ', notificationResponse);
+				return null;
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
@@ -280,6 +285,8 @@ var loginComponent = prime({
 					'status': true,
 					'responseText': 'Account registration successful! Please check your email for details'
 				});
+
+				return null;
 			})
 			.catch(function(err) {
 				response.status(err.number || err.code || 403).json({
@@ -301,6 +308,7 @@ var loginComponent = prime({
 			})
 			.then(function(notificationResponse) {
 				self.$dependencies.logger.debug('Response from Notificaton Server: ', notificationResponse);
+				return null;
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request "' + request.path + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);

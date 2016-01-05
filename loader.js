@@ -57,6 +57,8 @@ var twyrLoader = prime({
 		.then(function(status) {
 			if(!status) throw status;
 			if(callback) callback(null, status);
+
+			return null;
 		})
 		.catch(function(err) {
 			if(callback) callback(err, false);
@@ -91,6 +93,7 @@ var twyrLoader = prime({
 
 			finalStatus.push(status);
 			if(callback) callback(null, finalStatus);
+			return null;
 		})
 		.catch(function(err) {
 			if(callback) callback(err, false);
@@ -125,6 +128,7 @@ var twyrLoader = prime({
 
 			finalStatus.push(status);
 			if(callback) callback(null, finalStatus);
+			return null;
 		})
 		.catch(function(err) {
 			if(callback) callback(err, false);
@@ -143,6 +147,7 @@ var twyrLoader = prime({
 		.then(function(status) {
 			if(!status) throw status;
 			if(callback) callback(null, status);
+			return null;
 		})
 		.catch(function(err) {
 			if(callback) callback(err, false);
@@ -231,6 +236,7 @@ var twyrLoader = prime({
 		this._processPromisesAsync(serviceNames, promiseResolutions)
 		.then(function(result) {
 			if(callback) callback(null, { 'self': self.$module.name, 'type': 'services', 'status': result });
+			return null;
 		})
 		.catch(function(err) {
 			if(callback) callback(err);
@@ -290,6 +296,7 @@ var twyrLoader = prime({
 		this._processPromisesAsync(componentNames, promiseResolutions)
 		.then(function(result) {
 			if(callback) callback(null, { 'self': self.$module.name, 'type': 'components', 'status': result });
+			return null;
 		})
 		.catch(function(err) {
 			if(callback) callback(err);
@@ -303,7 +310,7 @@ var twyrLoader = prime({
 
 		for(var serviceIdx in this.$module.$services) {
 			var thisService = this.$module.$services[serviceIdx];
-			
+
 			serviceNames.push(thisService.name);
 			promiseResolutions.push(thisService.initializeAsync());
 		}
@@ -312,6 +319,7 @@ var twyrLoader = prime({
 		this._processPromisesAsync(serviceNames, promiseResolutions)
 		.then(function(result) {
 			if(callback) callback(null, { 'self': self.$module.name, 'type': 'services', 'status': result });
+			return null;
 		})
 		.catch(function(err) {
 			if(callback) callback(err);
@@ -334,6 +342,7 @@ var twyrLoader = prime({
 		this._processPromisesAsync(componentNames, promiseResolutions)
 		.then(function(result) {
 			if(callback) callback(null, { 'self': self.$module.name, 'type': 'components', 'status': result });
+			return null;
 		})
 		.catch(function(err) {
 			if(callback) callback(err);
@@ -357,7 +366,7 @@ var twyrLoader = prime({
 
 			for(var depIdx in thisService.dependencies) {
 				var thisServiceDependency = thisService.dependencies[depIdx];
-				
+
 				try {
 					initOrder.addDependency(thisService.name, thisServiceDependency);
 				}
@@ -392,7 +401,7 @@ var twyrLoader = prime({
 					currentDependency = currentModule.$services[thisServiceDependency];
 					if(!currentDependency) currentModule = currentModule.$module;
 				}
-				
+
 				if(currentDependency) {
 					Object.defineProperty(thisServiceDependencies, thisServiceDependency, {
 						'__proto__': null,
@@ -411,6 +420,7 @@ var twyrLoader = prime({
 		this._processPromisesAsync(serviceNames, promiseResolutions)
 		.then(function(result) {
 			if(callback) callback(null, { 'self': self.$module.name, 'type': 'services', 'status': result });
+			return null;
 		})
 		.catch(function(err) {
 			if(callback) callback(err);
@@ -461,6 +471,7 @@ var twyrLoader = prime({
 		this._processPromisesAsync(componentNames, promiseResolutions)
 		.then(function(result) {
 			if(callback) callback(null, { 'self': self.$module.name, 'type': 'components', 'status': result });
+			return null;
 		})
 		.catch(function(err) {
 			if(callback) callback(err);
@@ -511,6 +522,7 @@ var twyrLoader = prime({
 		this._processPromisesAsync(serviceNames, promiseResolutions)
 		.then(function(result) {
 			if(callback) callback(null, { 'self': self.$module.name, 'type': 'services', 'status': result });
+			return null;
 		})
 		.catch(function(err) {
 			if(callback) callback(err);
@@ -534,6 +546,7 @@ var twyrLoader = prime({
 		this._processPromisesAsync(componentNames, promiseResolutions)
 		.then(function(result) {
 			if(callback) callback(null, { 'self': self.$module.name, 'type': 'components', 'status': result });
+			return null;
 		})
 		.catch(function(err) {
 			if(callback) callback(err);
@@ -556,6 +569,7 @@ var twyrLoader = prime({
 		this._processPromisesAsync(serviceNames, promiseResolutions)
 		.then(function(result) {
 			if(callback) callback(null, { 'self': self.$module.name, 'type': 'services', 'status': result });
+			return null;
 		})
 		.catch(function(err) {
 			if(callback) callback(err);
@@ -578,6 +592,7 @@ var twyrLoader = prime({
 		this._processPromisesAsync(componentNames, promiseResolutions)
 		.then(function(result) {
 			if(callback) callback(null, { 'self': self.$module.name, 'type': 'components', 'status': result });
+			return null;
 		})
 		.catch(function(err) {
 			if(callback) callback(err);
@@ -613,12 +628,14 @@ var twyrLoader = prime({
 			}
 
 			if(callback) callback(null, { 'self': self.$module.name, 'type': 'services', 'status': status });
+			return null;
 		})
 		.catch(function(err) {
 			if(callback) callback(err);
 		})
 		.finally(function() {
 			delete self.$module['$services'];
+			return null;
 		});
 	},
 
@@ -643,12 +660,14 @@ var twyrLoader = prime({
 			}
 
 			if(callback) callback(null, { 'self': self.$module.name, 'type': 'components', 'status': status });
+			return null;
 		})
 		.catch(function(err) {
 			if(callback) callback(err);
 		})
 		.finally(function() {
 			delete self.$module['$components'];
+			return null;
 		});
 	},
 
@@ -667,7 +686,7 @@ var twyrLoader = prime({
 		// Step 1: Get the list of files / folders in the rootDir
 		var rootDirObjects = filesystem.readdirSync(rootDir),
 			finalList = [];
-		
+
 		// Step 2: Process each sub-directory in this directory
 		for(var rootDirIdx in rootDirObjects) {
 			var thisObjectPath = path.join(rootDir, rootDirObjects[rootDirIdx]);
@@ -700,13 +719,14 @@ var twyrLoader = prime({
 				nameStatusPair[thisName] = thisStatus;
 				everythingOK = everythingOK && thisStatus;
 			}
-			
+
 			if(!everythingOK) {
 				throw nameStatusPair;
 				return;
 			}
 
 			if(callback) callback(null, nameStatusPair);
+			return null;
 		})
 		.catch(function(err) {
 			if(callback) callback(err);

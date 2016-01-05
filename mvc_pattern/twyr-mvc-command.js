@@ -76,6 +76,7 @@ var mvcCommand = prime({
 			promises.all(promiseResolutions)
 			.then(function(results) {
 				self._mergeResults(results, callback);
+				return null;
 			})
 			.catch(function(err) {
 				callback(err);

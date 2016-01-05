@@ -144,6 +144,7 @@ var organizationManagerLocationsComponent = prime({
 				}
 
 				response.status(200).json(responseData);
+				return null;
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
@@ -185,6 +186,8 @@ var organizationManagerLocationsComponent = prime({
 						'type': request.body.data.type
 					}
 				});
+
+				return null;
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
@@ -216,6 +219,7 @@ var organizationManagerLocationsComponent = prime({
 			})
 			.then(function() {
 				response.status(204).json({});
+				return null;
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
@@ -261,6 +265,8 @@ var organizationManagerLocationsComponent = prime({
 						'type': request.body.data.type
 					}
 				});
+
+				return null;
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
@@ -298,6 +304,8 @@ var organizationManagerLocationsComponent = prime({
 						}
 					}
 				});
+
+				return null;
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);

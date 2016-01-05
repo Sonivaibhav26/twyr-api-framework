@@ -61,6 +61,7 @@ var mvcController = prime({
 			}
 
 			callback(null, success);
+			return null;
 		})
 		.catch(function(err) {
 			self.$facade.$dependencies.logger.error('Error adding Command for ' + self.$facade.name + ': ' + Command.prototype.name + '\nError: ', err);
@@ -75,6 +76,7 @@ var mvcController = prime({
 		self.$commandMap.delAsync(commandName)
 		.then(function() {
 			callback(null, true);
+			return null;
 		})
 		.catch(function(err) {
 			callback(err);
@@ -87,6 +89,7 @@ var mvcController = prime({
 		self.$commandMap.getAsync(commandName)
 		.then(function(exists) {
 			callback(null, !!exists);
+			return null;
 		})
 		.catch(function(err) {
 			callback(err);
@@ -109,6 +112,7 @@ var mvcController = prime({
 		})
 		.then(function(result) {
 			callback(null, result);
+			return null;
 		})
 		.catch(function(err) {
 			self.$facade.$dependencies.logger.error('Error executing Command for ' + self.$facade.name + ': ' + commandData.name + '\nError: ', err);
@@ -122,6 +126,7 @@ var mvcController = prime({
 		self.$facade.$model.getDataAsync(inputData)
 		.then(function(outputData) {
 			callback(null, outputData);
+			return null;
 		})
 		.catch(function(err) {
 			callback(err);
@@ -134,6 +139,7 @@ var mvcController = prime({
 		self.$facade.$view.updateMediatorAsync(modelData)
 		.then(function(viewData) {
 			callback(null, viewData);
+			return null;
 		})
 		.catch(function(err) {
 			callback(err);

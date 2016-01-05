@@ -173,6 +173,7 @@ var organizationManagerComponent = prime({
 				}
 
 				response.status(200).json(responseData);
+				return null;
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
@@ -208,6 +209,8 @@ var organizationManagerComponent = prime({
 						'type': 'organization-manager'
 					}
 				});
+
+				return null;
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
@@ -283,6 +286,7 @@ var organizationManagerComponent = prime({
 				}
 
 				response.status(200).json(responseData);
+				return null;
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
@@ -323,6 +327,8 @@ var organizationManagerComponent = prime({
 						'type': 'organization-managers'
 					}
 				});
+
+				return null;
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
@@ -350,6 +356,7 @@ var organizationManagerComponent = prime({
 			})
 			.then(function(savedRecord) {
 				response.status(204).json({});
+				return null;
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
@@ -433,6 +440,8 @@ var organizationManagerComponent = prime({
 						'type': 'organization-manager-user'
 					}
 				});
+
+				return null;
 			})
 			.catch(function(err) {
 				response.status(422).json({
@@ -456,6 +465,7 @@ var organizationManagerComponent = prime({
 			})
 			.then(function(notificationResponse) {
 				self.$dependencies.logger.debug('Response from Notificaton Server: ', notificationResponse);
+				return null;
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
@@ -487,6 +497,7 @@ var organizationManagerComponent = prime({
 				};
 
 				response.status(200).json(responseData);
+				return null;
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);

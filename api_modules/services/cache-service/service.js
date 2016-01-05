@@ -63,6 +63,7 @@ var cacheService = prime({
 				delete self['$cache'];
 
 				callback(null, status);
+				return null;
 			})
 			.catch(function(err) {
 				callback(err);

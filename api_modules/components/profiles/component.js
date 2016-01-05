@@ -95,6 +95,8 @@ var profilesComponent = prime({
 					'status': true,
 					'responseText': 'Change Password Successful! Please check your email for details'
 				});
+
+				return null;
 			})
 			.catch(function(err) {
 				response.status(err.code || err.number || 500).json({
@@ -116,6 +118,7 @@ var profilesComponent = prime({
 			})
 			.then(function(notificationResponse) {
 				self.$dependencies.logger.debug('Response from Notificaton Server: ', notificationResponse);
+				return null;
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
@@ -147,6 +150,8 @@ var profilesComponent = prime({
 					'status': true,
 					'responseText': 'Your ' + request.params.socialNetwork + ' account has been de-linked'
 				});
+
+				return null;
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
@@ -187,6 +192,7 @@ var profilesComponent = prime({
 				});
 
 				response.status(200).json({'data': responseData});
+				return null;
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
@@ -227,6 +233,8 @@ var profilesComponent = prime({
 						'type': request.body.data.type
 					}
 				});
+
+				return null;
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
@@ -273,6 +281,7 @@ var profilesComponent = prime({
 			})
 			.then(function() {
 				response.status(204).json({});
+				return null;
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);

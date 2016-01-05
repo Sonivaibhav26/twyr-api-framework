@@ -45,7 +45,7 @@ var mvcView = prime({
 		.then(function(exists) {
 			if(!!exists) {
 				throw ({ 'code': 403, 'message': 'Duplicate mediator: ' + Mediator.prototype.name });
-				return;
+				return null;
 			}
 
 			var mediator = promises.promisifyAll(new Mediator(self));
@@ -54,10 +54,11 @@ var mvcView = prime({
 		.then(function(success) {
 			if(!success) {
 				throw ({ 'code': 403, 'message': 'Could not add mediator: ' + Mediator.prototype.name });
-				return;
+				return null;
 			}
 
 			callback(null, true);
+			return null;
 		})
 		.catch(function(err) {
 			self.$facade.$dependencies.logger.error('Error adding Mediator for ' + self.$facade.name + ': ' + Mediator.prototype.name + '\nError: ', err);
@@ -72,6 +73,7 @@ var mvcView = prime({
 		self.$mediatorMap.delAsync(mediatorName)
 		.then(function() {
 			callback(null, true);
+			return null;
 		})
 		.catch(function(err) {
 			callback(err);
@@ -84,6 +86,7 @@ var mvcView = prime({
 		self.$mediatorMap.getAsync(mediatorName)
 		.then(function(exists) {
 			callback(null, !!exists);
+			return null;
 		})
 		.catch(function(err) {
 			callback(err);
@@ -98,13 +101,14 @@ var mvcView = prime({
 		.then(function(mediator) {
 			if(!mediator) {
 				throw ({ 'code': 403, 'message': 'Mediator ' + modelData.name + ' not found' });
-				return;
+				return null;
 			}
 
 			return mediator.updateAsync(modelData);
 		})
 		.then(function(result) {
 			callback(null, result);
+			return null;
 		})
 		.catch(function(err) {
 			self.$facade.$dependencies.logger.error('Error updating Mediator for ' + self.$facade.name + ': ' + modelData.name + '\nError: ', err);

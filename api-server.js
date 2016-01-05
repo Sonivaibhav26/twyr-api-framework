@@ -41,6 +41,8 @@ var app = prime({
 		.then(function(status) {
 			if(!status) throw status;
 			if(callback) callback(null, status);
+
+			return null;
 		})
 		.catch(function(err) {
 			console.error('Twyr API Server Load Error: ', err);
@@ -55,6 +57,8 @@ var app = prime({
 		.then(function(status) {
 			if(!status) throw status;
 			if(callback) callback(null, status);
+
+			return null;
 		})
 		.catch(function(err) {
 			console.error('Twyr API Server Initialize Error: ', err);
@@ -87,7 +91,7 @@ var app = prime({
 				sessStore = require('connect-' + self.$config.session.store.media)(session),
 				timeout = require('connect-timeout'),
 				loggerSrvc = self.$services.logger.getInterface();
-			
+
 			// Step 2: Setup Winston for Express Logging & CORS
 			var loggerStream = {
 				'write': function(message, encoding) {
@@ -127,7 +131,7 @@ var app = prime({
 				'saveUninitialized': true,
 				'resave': false
 			});
-			
+
 			// Step 3.2: Setup the standard stuff...
 			apiServer
 				.use(logger('combined', {
@@ -221,6 +225,7 @@ var app = prime({
 			(self.$services.eventService.getInterface()).emit('twyrstart', self);
 
 			if(callback) callback(null, status);
+			return null;
 		})
 		.catch(function(err) {
 			console.error('Twyr API Server Start Error: ', err);
@@ -242,6 +247,8 @@ var app = prime({
 		.then(function(status) {
 			if(!status) throw status;
 			if(callback) callback(null, status);
+
+			return null;
 		})
 		.catch(function(err) {
 			console.error('Twyr API Server Uninitialize Error: ', err);
@@ -257,6 +264,8 @@ var app = prime({
 		.then(function(status) {
 			if(!status) throw status;
 			if(callback) callback(null, status);
+
+			return null;
 		})
 		.catch(function(err) {
 			console.error('Twyr API Server Unload Error: ', err);
@@ -265,6 +274,8 @@ var app = prime({
 		.finally(function() {
 			delete self['$loader'];
 			delete self['$module'];
+
+			return null;
 		});
 	},
 
@@ -291,6 +302,8 @@ var app = prime({
 		.then(function(status) {
 			if(!status) throw status;
 			if(callback) callback(null, status);
+
+			return null;
 		})
 		.catch(function(err) {
 			console.error('Twyr API Server Stop Error: ', err);
@@ -300,6 +313,8 @@ var app = prime({
 			delete self['$apiServer'];
 			delete self['$session'];
 			delete self['$cookieParser'];
+
+			return null;
 		});
 	},
 

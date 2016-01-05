@@ -179,6 +179,7 @@ var organizationManagerTeamComponent = prime({
 				}
 
 				response.status(200).json(responseData);
+				return null;
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
@@ -221,6 +222,7 @@ var organizationManagerTeamComponent = prime({
 				}
 
 				response.status(200).json(responseData);
+				return null;
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
@@ -276,6 +278,7 @@ var organizationManagerTeamComponent = prime({
 				}
 
 				response.status(200).json(responseData);
+				return null;
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
@@ -316,6 +319,8 @@ var organizationManagerTeamComponent = prime({
 						'type': request.body.data.type
 					}
 				});
+
+				return null;
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
@@ -347,6 +352,7 @@ var organizationManagerTeamComponent = prime({
 			})
 			.then(function() {
 				response.status(204).json({});
+				return null;
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
@@ -380,6 +386,7 @@ var organizationManagerTeamComponent = prime({
 			})
 			.then(function(savedRecord) {
 				response.status(200).json({ 'id': savedRecord.get('id') });
+				return null;
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
@@ -410,6 +417,7 @@ var organizationManagerTeamComponent = prime({
 			})
 			.then(function() {
 				response.status(200).json({});
+				return null;
 			})
 			.catch(function(err) {
 				self.$dependencies.logger.error('Error servicing request ' + request.method + ' "' + request.originalUrl + '":\nQuery: ', request.query, '\nBody: ', request.body, '\nParams: ', request.params, '\nError: ', err);
